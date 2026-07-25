@@ -9,6 +9,33 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v63 — 2026-07-25
+
+**São Paulo's gravity, not the textbook's.** The model's `g` moves from 9.81 to
+**9.7864 m/s²** — the **local** value from IAG-USP absolute gravimetry. 9.81 is
+≈0.24% high here, and every DEM this app ships plus every ride the model was
+calibrated against sits in the São Paulo metropolitan region, so the local value
+is the physical one. Direct consequence: `β = m·g/k_eff` falls 0.7585 →
+**0.7567 kJ/m** (visible in the Parameters panel's derived-coefficient readout),
+and with it **every energy drops ≈0.24%** on climb-dominated terrain (≈0.2%
+mixed — `a_roll` falls 0.24%, but `v_f` rises a hair, so `a_aero` rises 0.10%).
+Optimal routes barely move: the whole cost bundle rescales by very nearly a
+common factor. An old bundle reloaded recomputes at the new `g`, so it reads
+≈0.2% below the raster it stored.
+
+This **re-syncs the app with `bicycling-energy-model`** (that repo's journal
+Entry 27), which moved first: while the two disagreed, the sibling applet's
+`v2Edge` readout differed from what this app deploys by exactly that ratio.
+
+**Constants only** — no model, engine or wire-format change. `g` is hand-copied
+across the `readCost` mirror chain (`app.js` is the origin;
+`census/census-density.mjs`, `test-energy-v2.mjs` and every `docs/grid-*.mjs`
+harness — `grep 9.7864`), and the Rust backend carries **no copy**: it receives
+the already-derived cost bundle over the wire, so JS↔Rust bit-parity is
+unaffected (97 cases, max|Δ| = 0, revalidated). Dated research notes keep the
+numbers they were published with; the grid-connectivity note gained a gravity
+note saying so.
+
 ## v62 — 2026-07-12
 
 **Directions ≠ 8 on the cloud/native backend.** The Rust backend (0.2.0)

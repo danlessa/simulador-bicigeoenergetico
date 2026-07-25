@@ -14,7 +14,10 @@ let failures = 0;
 const approx = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;
 function ok(name, cond, extra = "") { console.log(`${cond ? "  ok  " : "FAIL  "}${name}${extra ? "  — " + extra : ""}`); if (!cond) failures++; }
 
-const G = 9.81;
+// São Paulo's local gravity (IAG-USP absolute gravimetry), not the textbook
+// 9.81 — mirrors app.js's G_SP; re-baselined in v63 (long note there). The
+// assertions below are written in terms of G, so they track it automatically.
+const G = 9.7864;
 
 // ── mirror of app.js flatEqSpeed() + readCost() (physics → kJ cost bundle) ────
 function flatEqSpeed(P, m, crr, cda, rho, keff) {
@@ -183,7 +186,7 @@ function refEnergyKJ(segs, c, tau = 2) {
 // ── 4. readCost() sanity: physics → kJ coefficients in a believable range ─────
 {
   const c = deriveCost({ mass: 75, crr: 0.008, cda: 0.45, rho: 1.1, keff: 0.97, pFlat: 80, climbThrPct: 2 });
-  // beta = m·g·k_smooth/k_eff in kJ/m ≈ 75·9.81/0.97/1000 ≈ 0.759 at k_smooth=1.
+  // beta = m·g·k_smooth/k_eff in kJ/m ≈ 75·9.7864/0.97/1000 ≈ 0.757 at k_smooth=1.
   ok("beta ≈ m·g/keff (kJ/m)", approx(c.beta, 75 * G / 0.97 / 1000, 1e-9), `got ${c.beta.toFixed(4)}`);
   // abRatio (flat-resistance grade) lands in a sane 1–3% band for road cycling.
   ok("abRatio in 1–3% band", c.abRatio > 0.01 && c.abRatio < 0.03, `got ${c.abRatio.toFixed(4)}`);

@@ -551,7 +551,17 @@
 //              slices. App version-gates dispatch on /health ≥ 0.2.0 (an
 //              older binary silently ignores nDirs); estimate models the
 //              nDirs memory terms.
-const VERSION  = "v62";
+//   v62 → v63: Gravity re-baselined to São Paulo's LOCAL value, g = 9.7864
+//              m/s² (IAG-USP absolute gravimetry), replacing the textbook
+//              9.81 — which is ≈0.24% high here. β falls 0.7585 → 0.7567
+//              kJ/m, so every energy field / budget / route cost drops
+//              ≈0.24% on climb-dominated terrain (≈0.2% mixed). Re-syncs the
+//              app with bicycling-energy-model (journal Entry 27), which
+//              moved first; the two had disagreed by exactly this ratio.
+//              Constants only — no model, engine or parity change (the Rust
+//              backend receives the derived cost bundle over the wire, so
+//              JS↔Rust bit-parity is untouched: 97 cases, max|Δ| = 0).
+const VERSION  = "v63";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

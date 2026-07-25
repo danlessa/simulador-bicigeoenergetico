@@ -554,7 +554,7 @@ const STRINGS = {
   "help.p.cost":         { pt: "Cada movimento entre células adjacentes (4 cardeais + 4 diagonais) custa em kJ, pelo modelo v2: os parâmetros físicos (massa total <em>m</em>, <em>Crr</em>, <em>CdA</em>, <em>ρ</em>, eficiência <em>k_eff</em>, potência de cruzeiro no plano, limiar de subida, suavização) são reduzidos uma vez ao pacote <code>{a_rol, a_aero, β, limiar, α/β, ε_offset}</code> (kJ/m e kJ). Com <code>Δh = h_v − h_u</code> e <code>d</code> a distância no chão:", en: 'Each move between adjacent cells (4 cardinal + 4 diagonal) costs kJ, per the v2 model: the physical parameters (total mass <em>m</em>, <em>Crr</em>, <em>CdA</em>, <em>ρ</em>, efficiency <em>k_eff</em>, cruise power on the flat, climb threshold, smoothing) are folded once into the bundle <code>{a_roll, a_aero, β, threshold, α/β, ε_offset}</code> (kJ/m and kJ). With <code>Δh = h_v − h_u</code> and <code>d</code> the ground distance:' },
   "help.formula":        { pt: "subida (Δh ≥ 0):  a_rol·d + (a_aero·d se rampa < limiar) + β·Δh\ndescida (Δh < 0): max(0, a_rol·d + a_aero·d − ε·β·|Δh|)\nε = clamp₀₁(min(1, (α/β)·d/|Δh|) − 0.13)",
                            en: "uphill (Δh ≥ 0):   a_roll·d + (a_aero·d if grade < threshold) + β·Δh\ndownhill (Δh < 0): max(0, a_roll·d + a_aero·d − ε·β·|Δh|)\nε = clamp₀₁(min(1, (α/β)·d/|Δh|) − 0.13)" },
-  "help.p.cost_extra":   { pt: "Nos padrões (75 kg, Crr 0.008, CdA 0.45, ρ 1.1, k_eff 0.97, 80 W no plano), <code>β = m·g/k_eff ≈ 0.76 kJ/m</code> de subida; o arrasto (<code>a_aero</code>) só é cobrado abaixo do <em>limiar de subida</em> (2%) — subindo forte a velocidade cai e o arrasto some. Na descida a recuperação <code>ε</code> depende da rampa: descidas suaves devolvem quase todo o custo de resistência, descidas íngremes não devolvem nada (nunca abaixo de zero).", en: 'At the defaults (75 kg, Crr 0.008, CdA 0.45, ρ 1.1, k_eff 0.97, 80 W on the flat), <code>β = m·g/k_eff ≈ 0.76 kJ/m</code> of climb; aero (<code>a_aero</code>) is only charged below the <em>climb threshold</em> (2%) — on a steep climb speed drops and drag vanishes. Downhill the recovery <code>ε</code> depends on grade: gentle descents refund most of the resistance cost, steep ones refund nothing (never below zero).' },
+  "help.p.cost_extra":   { pt: "Nos padrões (75 kg, Crr 0.008, CdA 0.45, ρ 1.1, k_eff 0.97, 80 W no plano), <code>β = m·g/k_eff ≈ 0.76 kJ/m</code> de subida — com <code>g = 9,7864 m/s²</code>, a gravidade <em>local</em> de São Paulo (gravimetria absoluta do IAG-USP), não os 9,81 de livro-texto; o arrasto (<code>a_aero</code>) só é cobrado abaixo do <em>limiar de subida</em> (2%) — subindo forte a velocidade cai e o arrasto some. Na descida a recuperação <code>ε</code> depende da rampa: descidas suaves devolvem quase todo o custo de resistência, descidas íngremes não devolvem nada (nunca abaixo de zero).", en: 'At the defaults (75 kg, Crr 0.008, CdA 0.45, ρ 1.1, k_eff 0.97, 80 W on the flat), <code>β = m·g/k_eff ≈ 0.76 kJ/m</code> of climb — with <code>g = 9.7864 m/s²</code>, São Paulo\'s <em>local</em> gravity (IAG-USP absolute gravimetry), not the textbook 9.81; aero (<code>a_aero</code>) is only charged below the <em>climb threshold</em> (2%) — on a steep climb speed drops and drag vanishes. Downhill the recovery <code>ε</code> depends on grade: gentle descents refund most of the resistance cost, steep ones refund nothing (never below zero).' },
   "help.p.cost_resolution": { pt: "O modelo v2 funciona melhor perto de ~30 m de amostragem do relevo. Em DTMs de 5 m — como o IGC-SP usado aqui — a energia lida sai conservadoramente ALTA (mediana medida ~+9% em passeios reais de São Paulo) e rotas com muita descida acabam relativamente mais penalizadas, porque a recuperação <code>ε</code> é calculada por rampa local e rampas finas de 5 m leem mais íngremes/ruidosas do que a 30 m. Desde a v55 o app aplica, ao carregar MDTs finos (pixel ≤ 10 m), uma <em>suavização</em> gaussiana estática (σ = 10 m, controlável em 1A) — a configuração validada no journal (Entry 20). A precisão fina vem de <em>calibrar os parâmetros</em> (CdA, Crr, k_s) nos seus próprios percursos: com calibração, o erro validado fica abaixo de ±5% com viés < ±2% (procedimento no journal).", en: 'The v2 model behaves best near ~30 m terrain sampling. On 5 m DTMs — like the IGC-SP DEM used here — energies read conservatively HIGH (measured ~+9% median on real São Paulo rides), and descent-heavy routes end up relatively over-charged, because the <code>ε</code> recovery is computed per local grade and fine 5 m grades read steeper/noisier than at 30 m. Since v55 the app applies, when loading fine DTMs (pixel ≤ 10 m), a static Gaussian <em>smoothing</em> (σ = 10 m, controllable in 1A) — the journal-validated configuration (Entry 20). Fine accuracy comes from <em>calibrating the parameters</em> (CdA, Crr, k_s) on your own rides: calibrated, the validated error is under ±5% with bias < ±2% (procedure in the journal).' },
   "param.dem_smooth":    { pt: "Suavização do MDT", en: "DEM smoothing" },
   "demsmooth.auto":      { pt: "auto (σ = 10 m em MDTs finos)", en: "auto (σ = 10 m on fine DTMs)" },
@@ -825,8 +825,22 @@ const PERSIST_KEY = "simu-params";
 // Flat reference speed v_f (m/s) from the rider's power on the flat: solve the
 // steady wheel-power balance keff·P = (Crr·m·g + ½ρCdA·v²)·v by bisection.
 // Mirrors bicycling-energy-model compare.mjs flatEqSpeed (wind = 0).
+//
+// GRAVITY — local, not textbook. 9.7864 m/s² is São Paulo's value from IAG-USP
+// absolute gravimetry; 9.81 (the old constant) is ~0.24% high here. Every DEM
+// this app ships and every ride the model was calibrated on sits in the SP
+// metropolitan region, so the local value is the physical one. Re-baselined in
+// v63 to re-sync with bicycling-energy-model (journal Entry 27), which moved
+// first: while the two disagreed, the sibling applet's v2Edge readout differed
+// from this app's by exactly the gravity ratio. Consequence: β (and every
+// energy) falls by ≈0.24%.
+// HAND-COPIED into census/census-density.mjs, test-energy-v2.mjs and
+// docs/grid-*.mjs (the readCost mirror chain — grep 9.7864 to find them all).
+// The Rust backend needs NO copy: it receives the derived {aRoll, aAero, beta,
+// abRatio, …} bundle over the wire, so JS↔Rust bit-parity is gravity-blind.
+const G_SP = 9.7864;
 function flatEqSpeed(P, m, crr, cda, rho, keff) {
-  const a = crr * m * 9.81, b = 0.5 * rho * cda;
+  const a = crr * m * G_SP, b = 0.5 * rho * cda;
   let lo = 0, hi = 40;
   for (let k = 0; k < 60; k++) {
     const v = (lo + hi) / 2;
@@ -850,7 +864,7 @@ function readCost() {
   // for the LOW-COMPUTE closed form). Multiplies the gravity term (climb + the
   // descent credit); ε stays computed from the UN-smoothed abRatio.
   const kSmooth = Math.min(1, Math.max(0, num("ksmooth", 1)));
-  const g = 9.81, mg = m * g, KJ = 1000;
+  const g = G_SP, mg = m * g, KJ = 1000;   // local SP gravity — see G_SP above
   const aeroCoef = 0.5 * rho * cda * vf * vf;               // ½ρCdA·v_f² (J/ground-m, pre-/keff)
   return {
     aRoll: mg * crr / keff / KJ,

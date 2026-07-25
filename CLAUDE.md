@@ -269,6 +269,25 @@ loads `app.js` directly and libraries come from CDNs with SRI hashes.
   validated med|Δ%| 3.7/2.7/4.9 with bias < ±1% on three independent riders,
   meeting the ±5%/±2% product goal); smoothing alone does NOT rescue
   uncalibrated fine-DEM accuracy.
+- **GRAVITY IS LOCAL, and it is hand-copied.** `G_SP = 9.7864`
+  m/s² (São Paulo, IAG-USP absolute gravimetry) — NOT the textbook 9.81, which
+  is ≈0.24% high here. Re-baselined in v63 to re-sync with
+  `bicycling-energy-model` (its journal Entry 27), which moved first; while the
+  two disagreed, the sibling applet's `v2Edge` readout differed from this app's
+  by exactly the gravity ratio. The constant lives in `app.js`'s `readCost`
+  chain (the origin, with the long note) and is hand-copied into
+  `census/census-density.mjs`, `test-energy-v2.mjs` and every
+  `docs/grid-*.mjs` harness — the `readCost` mirror chain. **Grep `9.7864`
+  and change every hit together**; a mirror at a different gravity silently
+  computes different physics than the app (the sibling repo hit exactly that,
+  running two gravities inside one computation). `backend/src/main.rs` needs NO
+  copy and never will: it receives the derived `{aRoll, aAero, beta, abRatio,
+  …}` bundle over the wire, so **JS↔Rust bit-parity is gravity-blind** — which
+  also means `test-backend.mjs` (synthetic bundle, `aRoll: 1, beta: 30`) does
+  NOT exercise this constant. What pins it is `test-energy-v2.mjs`'s
+  `beta ≈ m·g/keff` assertion, written in terms of `G` so it tracks
+  automatically. Dated research notes keep the numbers they were published
+  with (see the gravity note in `docs/grid-connectivity-sensitivity-2026-07-11.md`).
 - **FABDEM is unsuitable for energy computations on flat/urban terrain**:
   its per-pixel noise inflates h₊ by +57% median (up to +135% on flat
   corpora) vs the validated local IGC survey, and `v2Edge` amplifies it

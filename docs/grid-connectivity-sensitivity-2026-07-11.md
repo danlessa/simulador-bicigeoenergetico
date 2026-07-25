@@ -80,6 +80,14 @@ aRoll 6.07e-3, aAero 8.12e-3, β 0.7585 kJ/m); v55 σ = 10 m pre-smoothing ←
 the `test-dem-smoothing.mjs` mirror. Dijkstra relax rules mirror the worker
 exactly (f32 E storage, f64 heap keys, settled-byte staleness filter).
 
+> **Gravity note (added 2026-07-25, v63).** Every number in this note was
+> produced with g = 9.81 m/s². v63 re-baselined the app *and* these harnesses
+> to São Paulo's local g = 9.7864 m/s² (IAG-USP absolute gravimetry), so a
+> re-run reads ≈0.24% lower in absolute energy (β 0.7585 → 0.7567 kJ/m,
+> aRoll 6.07e-3 → 6.05e-3). The conclusions here are all *ratios* between
+> lattices computed at the same g, which the change leaves intact; the recorded
+> absolute values are kept as the historical record, deliberately not re-run.
+
 **Validation gate.** Every run first executes the REAL `energy-worker.js` in
 a sandbox and asserts the harness's own 8-move field is bit-identical
 (max|Δ| = 0 kJ, zero finite-mismatches) — observed on all runs. The flat

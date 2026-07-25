@@ -46,8 +46,11 @@ export function loadWorker(enginePath = ENGINE) {
 // originals. app.js is a browser module and can't be imported here; keep all
 // three in step by hand (same rule as the test-water-raster.mjs mirrors).
 // Clamps and defaults match readCost exactly (the app's UI defaults).
+// G_SP — São Paulo's local gravity (IAG-USP absolute gravimetry), NOT the
+// textbook 9.81. Mirrors app.js's G_SP; re-baselined in v63 (long note there).
+const G_SP = 9.7864;
 export function flatEqSpeed(P, m, crr, cda, rho, keff) {
-  const a = crr * m * 9.81, b = 0.5 * rho * cda;
+  const a = crr * m * G_SP, b = 0.5 * rho * cda;
   let lo = 0, hi = 40;
   for (let k = 0; k < 60; k++) {
     const v = (lo + hi) / 2;
@@ -67,7 +70,7 @@ export function deriveCost(p = {}) {
   const vf   = flatEqSpeed(pFlat, m, crr, cda, rho, keff);  // m/s, derived
   const climbThr = Math.max(0, num(p.climbThrPct, 2)) / 100;  // % → grade
   const kSmooth = Math.min(1, Math.max(0, num(p.kSmooth, 1)));
-  const g = 9.81, mg = m * g, KJ = 1000;
+  const g = G_SP, mg = m * g, KJ = 1000;   // local SP gravity — see G_SP above
   const aeroCoef = 0.5 * rho * cda * vf * vf;               // ½ρCdA·v_f² (J/ground-m, pre-/keff)
   return {
     aRoll: mg * crr / keff / KJ,

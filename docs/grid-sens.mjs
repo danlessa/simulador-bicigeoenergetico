@@ -41,8 +41,15 @@ function v2Edge(dist, dh, c) {
 }
 
 // ---- deriveCost mirror (census/census-density.mjs ← app.js readCost) -------
+// G_SP — Sao Paulo's local gravity (IAG-USP absolute gravimetry), NOT the
+// textbook 9.81: mirrors app.js's G_SP, re-baselined in v63 (long note there).
+// The Entry 23/25/26 numbers in the research notes were produced at 9.81, so a
+// re-run now reads ~0.24% lower in absolute energy; the ratios they conclude on
+// are gravity-insensitive. Kept in step with the app deliberately: a mirror at a
+// different gravity would no longer describe what the app computes.
+const G_SP = 9.7864;
 function flatEqSpeed(P, m, crr, cda, rho, keff) {
-  const a = crr * m * 9.81, b = 0.5 * rho * cda;
+  const a = crr * m * G_SP, b = 0.5 * rho * cda;
   let lo = 0, hi = 40;
   for (let k = 0; k < 60; k++) {
     const v = (lo + hi) / 2;
@@ -53,7 +60,7 @@ function flatEqSpeed(P, m, crr, cda, rho, keff) {
 function deriveCost() {
   const m = 75, crr = 0.008, cda = 0.45, rho = 1.1, keff = 0.97, pFlat = 80;
   const vf = flatEqSpeed(pFlat, m, crr, cda, rho, keff);
-  const g = 9.81, mg = m * g, KJ = 1000;
+  const g = G_SP, mg = m * g, KJ = 1000;   // local SP gravity — see G_SP above
   const aeroCoef = 0.5 * rho * cda * vf * vf;
   return {
     aRoll: mg * crr / keff / KJ,

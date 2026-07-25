@@ -1729,6 +1729,25 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v63</strong> — 2026-07-25<br/>
+              <strong>A gravidade de São Paulo, não a do livro-texto.</strong> O
+              <code>g</code> do modelo passa de 9,81 para <strong>9,7864
+              m/s²</strong> — o valor <em>local</em>, medido por gravimetria
+              absoluta no IAG-USP. Os 9,81 são ≈0,24% altos aqui, e todo MDT que
+              o app carrega e todo passeio contra o qual o modelo foi calibrado
+              ficam na região metropolitana de São Paulo. Resultado:
+              <code>β = m·g/k_eff</code> cai de 0,7585 para <strong>0,7567
+              kJ/m</strong> (veja o leitor de coeficientes em Parâmetros) e
+              <strong>toda energia cai ≈0,24%</strong> em terreno de subida
+              (≈0,2% em terreno misto). As rotas ótimas quase não mudam — o
+              custo inteiro reescala por um fator praticamente comum; um bundle
+              antigo, recarregado, recalcula com o <code>g</code> novo e lê
+              ≈0,2% abaixo do raster que guardou. A mudança re-sincroniza o app
+              com o modelo do repositório irmão
+              (<em>bicycling-energy-model</em>, Entry 27): enquanto os dois
+              discordavam, o applet de lá lia exatamente essa diferença. É
+              mudança só de constante — nenhum motor mudou, e a paridade bit a
+              bit com o backend Rust segue exata.</p>
               <p><strong>v62</strong> — 2026-07-12<br/>
               <strong>Direções ≠ 8 no backend nativo/nuvem.</strong> O backend
               Rust (0.2.0) agora serve o recurso completo de direções de
