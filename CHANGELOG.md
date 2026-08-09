@@ -9,6 +9,25 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v65 — 2026-08-08
+
+**Viário do FGB, sem Overpass.** Novo botão em 1B — **"Puxar viário do FGB
+(América do Sul · nuvem)"** — que carrega a mesma malha `highway=*` do botão
+Overpass, mas servida do FlatGeobuf da América do Sul (gerado pelo
+`build-viario.py` do amora, hospedado no `gs://telhas`): o índice Hilbert
+R-tree do FGB permite baixar **só os bytes da janela** via HTTP Range — sem
+depender do servidor do OSM (e dos timeouts dele), e com `bridge`/`tunnel`/
+`layer` já em colunas, normalizadas exatamente como no pull do Overpass (as
+duas fontes são intercambiáveis rio abaixo: raster, grafo, pontes 1D via
+"Extract from loaded network"). Janela limitada a ~0,25°² (aproxime o zoom);
+reusa o flatgeobuf 3.36.0 que a amostragem censitária já carrega.
+
+**E uma re-emissão:** o deploy do v64 saiu **sem o purge da Cloudflare** e a
+edge serviu o `app.js` do v63 por até 4 h — clientes que instalaram o SW v64
+nessa janela precachearam o app antigo (`cache: "reload"` fura o cache do
+navegador, não a edge). O v65 força o re-precache; `deploy.sh` agora carrega o
+`.env` (CF_API_TOKEN/CF_ZONE_ID) sozinho, então o purge roda em todo deploy.
+
 ## v64 — 2026-08-08
 
 **Routing defaults follow the recommended practice** (`bicycling-energy-model`

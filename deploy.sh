@@ -32,6 +32,12 @@ PUBLIC_URL="https://simujaules.pedalhidrografi.co/"
 
 cd "$(dirname "$0")"
 
+# Credenciais opcionais (CF_API_TOKEN / CF_ZONE_ID pro purge da Cloudflare)
+# moram no .env gitignored ao lado deste script — carrega se existir, senão o
+# deploy sai sem purge e a edge serve HTML/JS velhos por até 4 h (o v64 saiu
+# assim e clientes precachearam o app.js do v63).
+if [[ -f .env ]]; then set -a; source .env; set +a; fi
+
 if [[ $# -gt 0 ]]; then
   echo "deploy.sh takes no arguments; got: $*" >&2
   exit 2

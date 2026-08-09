@@ -570,7 +570,20 @@
 //              optimum; gains beyond 32 are marginal at ≥ 2× runtime).
 //              Config defaults only — no engine change; nDirs = 8 remains
 //              the classic parity anchor and the "fast" choice.
-const VERSION  = "v64";
+//   v64 → v65: New 1B button "Puxar viário do FGB (América do Sul · nuvem)":
+//              the same highway=* network as the Overpass pull, served from
+//              amora's South-America road FlatGeobuf on gs://telhas — the
+//              packed Hilbert R-tree means only the view's bytes travel
+//              (HTTP Range), no Overpass dependency, and bridge/tunnel/layer
+//              come as columns (normalized identically to the OSM pull).
+//              Reuses the flatgeobuf 3.36.0 lib the census sampling already
+//              ships. ALSO a re-precache release: v64 deployed without a
+//              Cloudflare purge, the edge served the v63 app.js for up to
+//              4 h (cache:"reload" bypasses the browser cache, not the
+//              edge), and clients that installed v64 in that window
+//              precached the old app.js. deploy.sh now sources .env so the
+//              purge runs on every deploy.
+const VERSION  = "v65";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

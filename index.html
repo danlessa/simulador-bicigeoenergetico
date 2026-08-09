@@ -993,6 +993,13 @@
           <span data-i18n="net.example_viario">Viário RMSampa</span> <span class="ex-tag" data-i18n="net.example_viario_tag">~145 MB · nuvem</span>
         </button>
         <button type="button" class="secondary" id="vec-osm" data-i18n="net.osm" style="margin-top: 4px;">Pull streets from OSM (highway=*)</button>
+        <!-- Mesma malha highway=* do Overpass, mas servida do FlatGeobuf da
+             América do Sul (gerado pelo build-viario.py do amora, hospedado no
+             gs://telhas): o índice Hilbert R-tree do FGB permite baixar SÓ os
+             bytes da janela via HTTP Range — sem depender do servidor do OSM,
+             e com bridge/tunnel/layer já em colunas. Usa o flatgeobuf 3.36.0
+             que a amostragem censitária já carrega. -->
+        <button type="button" class="secondary" id="vec-fgb" data-i18n="net.fgb" style="margin-top: 4px;">Puxar viário do FGB (América do Sul · nuvem)</button>
         <button type="button" class="secondary" id="vec-clear" data-i18n="net.clear" style="margin-top: 4px;">Clear network</button>
         <label style="display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 11px; color: var(--text);">
           <input type="checkbox" id="vec-graph-mode" />
@@ -1733,6 +1740,17 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v65</strong> — 2026-08-08<br/>
+              <strong>Viário do FGB, sem Overpass.</strong> Novo botão em 1B —
+              <em>Puxar viário do FGB (América do Sul · nuvem)</em> — carrega a
+              mesma malha <code>highway=*</code> do botão Overpass, mas do
+              FlatGeobuf da América do Sul hospedado na nuvem do projeto: só os
+              bytes da janela viajam (HTTP Range contra o índice espacial), sem
+              depender do servidor do OSM, e pontes/túneis/layer já vêm em
+              colunas, normalizadas como no pull do Overpass. Também re-emite o
+              v64: aquele deploy saiu sem purge da Cloudflare e a edge serviu o
+              app.js antigo por algumas horas — quem pegou o v64 nessa janela
+              re-precacheia agora o app certo.</p>
               <p><strong>v64</strong> — 2026-08-08<br/>
               <strong>Padrões de roteamento na prática recomendada</strong>
               (journal do bicycling-energy-model, Entry 74). Dois padrões de

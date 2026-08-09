@@ -186,6 +186,12 @@ const STRINGS = {
   "net.junctions_crossings": { pt: "nos cruzamentos", en: "at crossings" },
   "net.junctions_shared":    { pt: "extremos comuns", en: "shared endpoints" },
   "net.osm":             { pt: "Puxar ruas do OSM (highway=*)", en: "Pull streets from OSM (highway=*)" },
+  "net.fgb":             { pt: "Puxar viário do FGB (América do Sul · nuvem)", en: "Pull streets from FGB (South America · cloud)" },
+  "status.fgb_querying": { pt: "Consultando o FGB do viário (só os bytes da janela, via HTTP Range)…", en: "Querying the road FGB (only the view's bytes, via HTTP Range)…" },
+  "status.fgb_progress": { pt: "FGB: {0} vias lidas…", en: "FGB: {0} ways read…" },
+  "status.fgb_no_ways":  { pt: "Nenhuma via do FGB na janela.", en: "No FGB ways in the view." },
+  "status.fgb_failed":   { pt: "Consulta ao FGB falhou: {0}", en: "FGB query failed: {0}" },
+  "status.fgb_too_big":  { pt: "Janela grande demais pro FGB (~{0}×{1} km) — aproxime o zoom.", en: "View too large for the FGB pull (~{0}×{1} km) — zoom in." },
   "net.example_viario":  { pt: "Viário RMSampa", en: "RMSampa road network" },
   "net.example_viario_tag": { pt: "~145 MB · nuvem · dados © OpenStreetMap, ODbL", en: "~145 MB · cloud · data © OpenStreetMap, ODbL" },
   "help.p.network_osm":  { pt: "Consulta o Overpass sobre a vista atual ∩ extensão do DEM. Áreas grandes podem demorar ou estourar limites do Overpass — aproxime o zoom primeiro.", en: "Queries Overpass over the current map view ∩ DEM extent. Large areas can take a while or hit Overpass limits — zoom in first." },
@@ -1561,6 +1567,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const vecClearBtn = document.getElementById("vec-clear");
   if (vecClearBtn) vecClearBtn.addEventListener("click", clearVectorNetwork);
   document.getElementById("vec-osm")?.addEventListener("click", loadOsmNetwork);
+  document.getElementById("vec-fgb")?.addEventListener("click", loadFgbNetwork);
   document.getElementById("ex-viario")?.addEventListener("click", () =>
     loadVectorFromUrl("https://simujaules.pedalhidrografi.co/vector/sampa-viario.gpkg", t("net.example_viario")));
 
@@ -3960,6 +3967,110 @@ async function loadOsmNetwork() {
   } finally {
     progress.classList.remove("active");
     if (osmBtn) osmBtn.disabled = false;
+  }
+}
+
+// Pull the same highway=* network from the South-America road FlatGeobuf
+// (built by amora's build-viario.py from Geofabrik OSM, hosted on gs://telhas
+// behind telhas.pedalhidrografi.co — CORS `*`). The FGB's packed Hilbert
+// R-tree lets flatgeobuf.deserialize(url, rect) fetch ONLY the bytes inside
+// the view∩DEM bbox via HTTP Range requests — no Overpass dependency, no
+// server-side timeout, and bridge/tunnel/layer come as real columns (raw OSM
+// values; normalized below exactly like the Overpass pull, so the two sources
+// are interchangeable downstream). Reuses the flatgeobuf 3.36.0 the census
+// sampling already loads, and the same installNetworkFromLines tail.
+const VIARIO_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-viario.fgb";
+const FGB_PULL_MAX_DEG2 = 0.25;        // ~55×50 km em SP — acima disso, aproxime o zoom
+const FGB_PULL_TIMEOUT_MS = 120_000;
+
+async function loadFgbNetwork() {
+  if (!state.dem) {
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.load_dem_first")}</span>`;
+    return;
+  }
+  // FGB coords are lon/lat; the bbox intersection below only holds for a
+  // geographic (EPSG:4326) DEM (same guard as the Overpass pull).
+  if (!state.dem.isGeographic) {
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.osm_net_geographic")}</span>`;
+    return;
+  }
+  if (typeof flatgeobuf === "undefined") {
+    status.innerHTML = `<span style="color:#ff6b6b">${t("census.lib_missing")}</span>`;
+    return;
+  }
+  const demRef = state.dem;              // epoch token, same as loadOsmNetwork
+  const { originX, originY, H, W, dx, dy } = state.dem;
+  const b = map.getBounds();
+  const south = Math.max(b.getSouth(), originY - H * dy);
+  const north = Math.min(b.getNorth(), originY);
+  const west  = Math.max(b.getWest(),  originX);
+  const east  = Math.min(b.getEast(),  originX + W * dx);
+  if (!(south < north && west < east)) {
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.osm_no_intersect")}</span>`;
+    return;
+  }
+  // Soft cap: an accidental continental-zoom pull would stream a huge share
+  // of the file. Overpass self-limits via its server timeout; here we refuse
+  // politely with the window size in km.
+  if ((east - west) * (north - south) > FGB_PULL_MAX_DEG2) {
+    const kmX = (east - west) * 111.32 * Math.cos(((south + north) / 2) * Math.PI / 180);
+    const kmY = (north - south) * 111.32;
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.fgb_too_big", kmX.toFixed(0), kmY.toFixed(0))}</span>`;
+    return;
+  }
+  const fgbBtn = document.getElementById("vec-fgb");
+  if (fgbBtn) fgbBtn.disabled = true;
+  progress.classList.add("active");
+  progressBar.style.width = "20%";
+  status.textContent = t("status.fgb_querying");
+  try {
+    const rect = { minX: west, minY: south, maxX: east, maxY: north };
+    const lines = [];
+    const meta = [];               // parallel { deck, layer }, as in the OSM pull
+    const bridgeCandidates = [];
+    const pushLine = (coords, p) => {
+      if (!Array.isArray(coords) || coords.length < 2) return;
+      const latlngs = coords.map((c) => [c[1], c[0]]);   // [lng,lat] → [lat,lng]
+      lines.push(latlngs);
+      // Same normalization as the Overpass pull (raw OSM values in columns).
+      const deck = (p.bridge && p.bridge !== "no") || p.tunnel === "yes";
+      const layerParsed = parseInt(p.layer, 10);
+      const layer = Number.isFinite(layerParsed) ? layerParsed : (p.tunnel === "yes" ? -1 : 1);
+      meta.push(deck ? { deck: true, layer } : { deck: false, layer: 0 });
+      if (deck) bridgeCandidates.push({ latlngs, kind: p.tunnel === "yes" ? "tunnel" : "bridge", layer, name: null });
+    };
+    await Promise.race([
+      (async () => {
+        let n = 0;
+        for await (const f of flatgeobuf.deserialize(VIARIO_FGB_URL, rect)) {
+          const g = f?.geometry;
+          const p = f?.properties || {};
+          if (g?.type === "LineString") pushLine(g.coordinates, p);
+          else if (g?.type === "MultiLineString") for (const part of g.coordinates) pushLine(part, p);
+          if (++n % 2048 === 0) {
+            status.textContent = t("status.fgb_progress", n.toLocaleString());
+            progressBar.style.width = `${Math.min(70, 20 + n / 400)}%`;
+          }
+        }
+      })(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), FGB_PULL_TIMEOUT_MS)),
+    ]);
+    if (!lines.length) throw new Error(t("status.fgb_no_ways"));
+    if (state.dem !== demRef) {
+      status.textContent = t("status.load_superseded");
+      return;
+    }
+    state.networkBridgeCandidates = bridgeCandidates.length ? bridgeCandidates : null;
+    progressBar.style.width = "80%";
+    status.textContent = t("status.osm_rasterising", lines.length.toLocaleString());
+    await new Promise((r) => setTimeout(r, 0));   // let the status paint
+    installNetworkFromLines(lines, 4326, "FGB viário (América do Sul)", meta);
+  } catch (err) {
+    console.error("[fgb-net]", err);
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.fgb_failed", escapeHtml(err.message))}</span>`;
+  } finally {
+    progress.classList.remove("active");
+    if (fgbBtn) fgbBtn.disabled = false;
   }
 }
 
