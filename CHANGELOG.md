@@ -9,6 +9,30 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v64 — 2026-08-08
+
+**Routing defaults follow the recommended practice** (`bicycling-energy-model`
+journal Entry 74 / paper 3 §3.2(d)). Two config defaults move — no engine
+change, no parity implications:
+
+- **DEM smoothing "auto" is now σ = 30 m on every source** (was σ = 10 m on
+  fine DTMs only). Coarse sources — FABDEM included — are now treated too: the
+  Entry-74 ε-policy contest showed the deployed grade-local ε wins every cell
+  on σ30-treated chains on both DTMs, while on raw chains the ordering inverts
+  (terrain noise manufactures steep micro-descents a grade-local policy
+  refuses to credit). The already-smoothed `ImageDescription` tag guard stays,
+  so re-imported exports are not double-smoothed; an explicit σ choice still
+  overrides.
+- **Move directions default 8 → 16** — the med|Δ%| optimum on the local
+  survey, 0.20 pp from FABDEM's n = 32 optimum. 8 remains the "fast" choice
+  and the Rust-parity anchor; gains beyond n = 32 are marginal (≤ 0.6 pp)
+  against ≥ 2× runtime per rung (and old bundles reload with the nDirs they
+  saved).
+
+Bridge/tunnel portals were already on by default and the grade-local descent ε
+is unchanged — with σ30 this completes the recommended bundle: **grade-local ε
+on a σ30-treated map, 16 directions, portals on**.
+
 ## v63 — 2026-07-25
 
 **São Paulo's gravity, not the textbook's.** The model's `g` moves from 9.81 to

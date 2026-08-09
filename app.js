@@ -555,9 +555,9 @@ const STRINGS = {
   "help.formula":        { pt: "subida (Δh ≥ 0):  a_rol·d + (a_aero·d se rampa < limiar) + β·Δh\ndescida (Δh < 0): max(0, a_rol·d + a_aero·d − ε·β·|Δh|)\nε = clamp₀₁(min(1, (α/β)·d/|Δh|) − 0.13)",
                            en: "uphill (Δh ≥ 0):   a_roll·d + (a_aero·d if grade < threshold) + β·Δh\ndownhill (Δh < 0): max(0, a_roll·d + a_aero·d − ε·β·|Δh|)\nε = clamp₀₁(min(1, (α/β)·d/|Δh|) − 0.13)" },
   "help.p.cost_extra":   { pt: "Nos padrões (75 kg, Crr 0.008, CdA 0.45, ρ 1.1, k_eff 0.97, 80 W no plano), <code>β = m·g/k_eff ≈ 0.76 kJ/m</code> de subida — com <code>g = 9,7864 m/s²</code>, a gravidade <em>local</em> de São Paulo (gravimetria absoluta do IAG-USP), não os 9,81 de livro-texto; o arrasto (<code>a_aero</code>) só é cobrado abaixo do <em>limiar de subida</em> (2%) — subindo forte a velocidade cai e o arrasto some. Na descida a recuperação <code>ε</code> depende da rampa: descidas suaves devolvem quase todo o custo de resistência, descidas íngremes não devolvem nada (nunca abaixo de zero).", en: 'At the defaults (75 kg, Crr 0.008, CdA 0.45, ρ 1.1, k_eff 0.97, 80 W on the flat), <code>β = m·g/k_eff ≈ 0.76 kJ/m</code> of climb — with <code>g = 9.7864 m/s²</code>, São Paulo\'s <em>local</em> gravity (IAG-USP absolute gravimetry), not the textbook 9.81; aero (<code>a_aero</code>) is only charged below the <em>climb threshold</em> (2%) — on a steep climb speed drops and drag vanishes. Downhill the recovery <code>ε</code> depends on grade: gentle descents refund most of the resistance cost, steep ones refund nothing (never below zero).' },
-  "help.p.cost_resolution": { pt: "O modelo v2 funciona melhor perto de ~30 m de amostragem do relevo. Em DTMs de 5 m — como o IGC-SP usado aqui — a energia lida sai conservadoramente ALTA (mediana medida ~+9% em passeios reais de São Paulo) e rotas com muita descida acabam relativamente mais penalizadas, porque a recuperação <code>ε</code> é calculada por rampa local e rampas finas de 5 m leem mais íngremes/ruidosas do que a 30 m. Desde a v55 o app aplica, ao carregar MDTs finos (pixel ≤ 10 m), uma <em>suavização</em> gaussiana estática (σ = 10 m, controlável em 1A) — a configuração validada no journal (Entry 20). A precisão fina vem de <em>calibrar os parâmetros</em> (CdA, Crr, k_s) nos seus próprios percursos: com calibração, o erro validado fica abaixo de ±5% com viés < ±2% (procedimento no journal).", en: 'The v2 model behaves best near ~30 m terrain sampling. On 5 m DTMs — like the IGC-SP DEM used here — energies read conservatively HIGH (measured ~+9% median on real São Paulo rides), and descent-heavy routes end up relatively over-charged, because the <code>ε</code> recovery is computed per local grade and fine 5 m grades read steeper/noisier than at 30 m. Since v55 the app applies, when loading fine DTMs (pixel ≤ 10 m), a static Gaussian <em>smoothing</em> (σ = 10 m, controllable in 1A) — the journal-validated configuration (Entry 20). Fine accuracy comes from <em>calibrating the parameters</em> (CdA, Crr, k_s) on your own rides: calibrated, the validated error is under ±5% with bias < ±2% (procedure in the journal).' },
+  "help.p.cost_resolution": { pt: "O modelo v2 funciona melhor sobre relevo <em>tratado</em>. Em MDTs crus a energia lida sai conservadoramente ALTA e rotas com muita descida acabam relativamente mais penalizadas, porque a recuperação <code>ε</code> é calculada por rampa local e o ruído do relevo fabrica micro-descidas íngremes que a política grade-local se recusa a creditar. Desde a v64 o app aplica, ao carregar <em>qualquer</em> MDT (fino ou grosso, FABDEM incluso), uma <em>suavização</em> gaussiana estática (σ = 30 m, controlável em 1A) — a prática recomendada validada no journal do bicycling-energy-model (Entry 74: nos mapas σ30-tratados o ε grade-local vence toda célula do contraste de políticas; era σ = 10 m só em MDTs finos desde a v55/Entry 20). A precisão fina vem de <em>calibrar os parâmetros</em> (CdA, Crr, k_s) nos seus próprios percursos: com calibração, o erro validado fica abaixo de ±5% com viés < ±2% (procedimento no journal).", en: 'The v2 model behaves best on <em>treated</em> terrain. On raw DTMs energies read conservatively HIGH, and descent-heavy routes end up relatively over-charged, because the <code>ε</code> recovery is computed per local grade and terrain noise manufactures steep micro-descents the grade-local policy refuses to credit. Since v64 the app applies, when loading <em>any</em> DTM (fine or coarse, FABDEM included), a static Gaussian <em>smoothing</em> (σ = 30 m, controllable in 1A) — the recommended practice validated in the bicycling-energy-model journal (Entry 74: on σ30-treated maps the grade-local ε wins every cell of the policy contest; it was σ = 10 m on fine DTMs only since v55/Entry 20). Fine accuracy comes from <em>calibrating the parameters</em> (CdA, Crr, k_s) on your own rides: calibrated, the validated error is under ±5% with bias < ±2% (procedure in the journal).' },
   "param.dem_smooth":    { pt: "Suavização do MDT", en: "DEM smoothing" },
-  "demsmooth.auto":      { pt: "auto (σ = 10 m em MDTs finos)", en: "auto (σ = 10 m on fine DTMs)" },
+  "demsmooth.auto":      { pt: "auto (σ = 30 m em todas as fontes)", en: "auto (σ = 30 m on all sources)" },
   "demsmooth.off":       { pt: "desligada", en: "off" },
   "status.dem_smoothing": { pt: "Suavizando MDT (σ = {0} m)…", en: "Smoothing DEM (σ = {0} m)…" },
   "dem.crop":            { pt: "Recortar DEM à janela atual", en: "Crop DEM to current view" },
@@ -2974,19 +2974,23 @@ async function loadDemFromArrayBuffer(buf, label, gen) {
     return;
   }
 
-  // Static pre-smoothing (v55, journal Entry 20). "auto" applies σ = 10 m to
-  // fine DTMs (pixel ≤ 10 m — e.g. the IGC-SP 5 m rasters) and skips coarse
-  // sources (FABDEM 30 m is already at the model's happy scale, Entry 19) AND
-  // sources whose ImageDescription tag says they were smoothed already (our
-  // own dem.tif exports carry it — guards double-smoothing on re-import). An
-  // explicit σ choice overrides both guards. Runs AFTER the generation
-  // re-check so a superseded load never burns the ~10 s worst-case pass.
+  // Static pre-smoothing (v55, journal Entry 20; re-baselined v64 by
+  // bicycling-energy-model Entry 74). "auto" applies σ = 30 m to EVERY
+  // source — coarse ones (FABDEM 30 m) included: the Entry-74 ε contest
+  // showed the deployed grade-local ε wins on σ30-treated chains on both
+  // DTMs while raw chains invert the ordering (noise manufactures steep
+  // micro-descents the grade-local policy refuses to credit), so the old
+  // fine-only σ10 rule under-treated. The ImageDescription tag guard stays:
+  // sources already smoothed (our own dem.tif exports carry the tag) are
+  // skipped — guards double-smoothing on re-import. An explicit σ choice
+  // overrides the guard. Runs AFTER the generation re-check so a superseded
+  // load never burns the worst-case pass (~30 s at σ30 on 135 M cells).
   const imgDescRaw = fileDirectory.getValue ? fileDirectory.getValue("ImageDescription") : null;
   const srcSmoothSigmaM = parseFloat((String(imgDescRaw || "").match(/simujaules:demSmoothSigmaM=([0-9.]+)/) || [])[1]) || 0;
   const smoothSel = document.getElementById("dem-smooth")?.value ?? "auto";
   let smoothSigmaM = 0;
   if (smoothSel === "auto") {
-    smoothSigmaM = (Math.min(dxM, dyM) <= 10 && !(srcSmoothSigmaM > 0)) ? 10 : 0;
+    smoothSigmaM = (srcSmoothSigmaM > 0) ? 0 : 30;
   } else {
     smoothSigmaM = Math.max(0, parseFloat(smoothSel) || 0);
   }

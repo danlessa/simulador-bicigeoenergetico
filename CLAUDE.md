@@ -152,7 +152,9 @@ loads `app.js` directly and libraries come from CDNs with SRI hashes.
   warns "lower bound". `state.refPopM` (census in-extent population, set ONLY
   by `placeCensusRefPoints` after its placement loop) is the M behind
   "K people" thresholds; every ref-set mutation nulls it.
-- MOVE DIRECTIONS (`#n-dirs`, 4–128, default 8) generalize both engines'
+- MOVE DIRECTIONS (`#n-dirs`, 4–128, default 16 since v64 — the
+  bicycling-energy-model Entry 74 recommendation; 8 is the "fast" choice and
+  the parity anchor) generalize both engines'
   neighborhoods via the Farey ladder (`buildMoves`). Invariants: (a) the
   first 8 moves of every set ≥ 8 are the CLASSIC 8 in the CLASSIC order —
   nDirs=8 must stay bit-identical to the historical engine (the Rust-parity
@@ -250,21 +252,26 @@ loads `app.js` directly and libraries come from CDNs with SRI hashes.
   `stepCost`/`backend/src/main.rs` — this is why the descent clamp above
   can't just be removed via a global reweighting; any such change must
   re-run `verify_v2edge_clamp.mjs`-style proof against the new formula.
-- **v2 model is tuned for ~30 m DEM sampling**, not 5 m. On the deployed
-  IGC-SP 5 m DTM, `v2Edge`'s grade-local ε collapses on steep local grades and
-  reads conservatively HIGH vs ∫P·dt (journal Entry 19: measured ~+9% median
-  bias on real São Paulo rides at 5 m vs ~+6% at 30 m). Since v55 the
-  mitigation SHIPS as app-side preprocessing (journal Entry 20's validated
-  config): `smoothHeightsInPlace()` — sequential per-axis mask-normalized
-  Gaussian, in place at DEM load — driven by the `#dem-smooth` knob ("auto"
-  = σ 10 m when min pixel ≤ 10 m; skips coarse sources AND already-smoothed
-  re-imports via the exported dem.tif's `ImageDescription` tag). It runs
-  BEFORE heights ship to the engines, so JS/graph/Rust bit-parity is
-  untouched — never move smoothing INTO an engine (path-history state,
-  forbidden above). `test-dem-smoothing.mjs` holds the byte-identical mirror
-  and reference tests (hand-kept-in-sync); Entry 20's σ is only valid for THIS
-  transform — don't swap in a plain blur or change σ/the auto rule without
-  re-running the journal validation. Accuracy itself is carried by per-rider
+- **v2 model is tuned for σ-treated terrain**, not raw. On raw chains
+  `v2Edge`'s grade-local ε collapses on steep local grades and reads
+  conservatively HIGH vs ∫P·dt (journal Entry 19: measured ~+9% median bias
+  on real São Paulo rides at 5 m vs ~+6% at 30 m; bicycling-energy-model
+  Entry 74: on raw chains even the flat ε₂ beats the grade-local policy —
+  noise manufactures steep micro-descents it refuses to credit). Since v55
+  the mitigation SHIPS as app-side preprocessing:
+  `smoothHeightsInPlace()` — sequential per-axis mask-normalized Gaussian,
+  in place at DEM load — driven by the `#dem-smooth` knob. Since v64 "auto"
+  = **σ 30 m on EVERY source, coarse (FABDEM) included** (bicycling-energy-
+  model Entry 74's re-validation, which moved the deployed defaults σ10 →
+  σ30; was Entry 20's σ 10 m on fine DTMs only), still skipping
+  already-smoothed re-imports via the exported dem.tif's `ImageDescription`
+  tag. It runs BEFORE heights ship to the engines, so JS/graph/Rust
+  bit-parity is untouched — never move smoothing INTO an engine
+  (path-history state, forbidden above). `test-dem-smoothing.mjs` holds the
+  byte-identical mirror and reference tests (hand-kept-in-sync); the σ
+  choices are only valid for THIS transform — don't swap in a plain blur or
+  change σ/the auto rule without re-running the journal validation (Entry 74
+  is the validation behind the current σ30 rule). Accuracy itself is carried by per-rider
   calibration (CdA/Crr/k_s fitted on the rider's own rides — Entry 20:
   validated med|Δ%| 3.7/2.7/4.9 with bias < ±1% on three independent riders,
   meeting the ±5%/±2% product goal); smoothing alone does NOT rescue

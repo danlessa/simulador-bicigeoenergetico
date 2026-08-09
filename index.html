@@ -1127,15 +1127,19 @@
                 <option value="round" data-i18n="mode.round">Round trip</option>
               </select></td></tr>
           <!-- Move directions (grid neighborhood). 8 = the classic engine
-               (default; the only value the native backend serves — other
-               values compute in-browser). Richer ladders shrink the
-               grid-jaggedness energy overestimate at proportional compute
-               cost (docs/grid-connectivity-sensitivity-2026-07-11.md). -->
+               (the fast choice and the Rust-parity anchor; the backend also
+               serves nDirs ≠ 8 since 0.2.0, version-gated). Richer ladders
+               shrink the grid-jaggedness energy overestimate at proportional
+               compute cost (docs/grid-connectivity-sensitivity-2026-07-11.md).
+               Default 16 since v64 (bicycling-energy-model Entry 74 / paper 3
+               §3.2(d)): the med|Δ%| optimum on the local survey, 0.20 pp from
+               FABDEM's n = 32 optimum; 8 stays the fast choice and gains
+               beyond 32 are marginal against ≥ 2× runtime per rung. -->
           <tr><td class="kv-key"><label for="n-dirs" data-i18n="param.ndirs">Direções de movimento</label></td>
               <td class="kv-val"><select id="n-dirs" data-i18n-title="param.ndirs.title">
                 <option value="4">4</option>
-                <option value="8" selected>8</option>
-                <option value="16">16</option>
+                <option value="8">8</option>
+                <option value="16" selected>16</option>
                 <option value="32">32</option>
                 <option value="64">64</option>
                 <option value="128">128</option>
@@ -1729,6 +1733,22 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v64</strong> — 2026-08-08<br/>
+              <strong>Padrões de roteamento na prática recomendada</strong>
+              (journal do bicycling-energy-model, Entry 74). Dois padrões de
+              configuração mudam — nenhuma mudança de engine: a suavização do
+              MDT em "auto" passa a aplicar <strong>σ = 30 m em todas as
+              fontes</strong> (era σ = 10 m só em MDTs finos; agora o FABDEM
+              também é tratado — no relevo cru, o ruído fabrica micro-descidas
+              íngremes que a recuperação ε grade-local se recusa a creditar, e
+              a energia sai alta), e as <strong>direções de movimento sobem de
+              8 para 16</strong> por padrão — o ótimo do levantamento local, a
+              0,20 pp do ótimo n=32 do FABDEM (8 segue como escolha rápida;
+              ganhos além de 32 são marginais frente a ≥2× o tempo).
+              Pontes/túneis já eram padrão — junto do σ30 fecha o pacote
+              recomendado: ε grade-local em mapa σ30-tratado, 16 direções,
+              portais ligados. A guarda contra re-suavizar um dem.tif
+              exportado continua valendo.</p>
               <p><strong>v63</strong> — 2026-07-25<br/>
               <strong>A gravidade de São Paulo, não a do livro-texto.</strong> O
               <code>g</code> do modelo passa de 9,81 para <strong>9,7864

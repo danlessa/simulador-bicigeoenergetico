@@ -561,7 +561,16 @@
 //              Constants only — no model, engine or parity change (the Rust
 //              backend receives the derived cost bundle over the wire, so
 //              JS↔Rust bit-parity is untouched: 97 cases, max|Δ| = 0).
-const VERSION  = "v63";
+//   v63 → v64: Routing defaults follow bicycling-energy-model Entry 74 /
+//              paper 3 §3.2(d): DEM smoothing "auto" now applies σ = 30 m to
+//              EVERY source (was σ = 10 m on fine DTMs only — coarse sources
+//              like FABDEM are now treated too; the already-smoothed tag
+//              guard stays), and move directions default 8 → 16 (the local
+//              survey's med|Δ%| optimum, 0.20 pp from FABDEM's n = 32
+//              optimum; gains beyond 32 are marginal at ≥ 2× runtime).
+//              Config defaults only — no engine change; nDirs = 8 remains
+//              the classic parity anchor and the "fast" choice.
+const VERSION  = "v64";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 
