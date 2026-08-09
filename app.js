@@ -504,7 +504,8 @@ const STRINGS = {
   "passes.gamma":        { pt: "γ gama (1 = sem mudança)", en: "γ gamma (1 = no change)" },
   "passes.mean_window":  { pt: "filtro média N", en: "mean filter N" },
   "passes.blend":        { pt: "Blend", en: "Blend" },
-  "blend.add":           { pt: "soma (plus-lighter)", en: "add (plus-lighter)" },
+  "blend.add":           { pt: "soma de cores (plus-lighter)", en: "add colors (plus-lighter)" },
+  "blend.sum_data":      { pt: "soma de dados (A+B numa paleta)", en: "data sum (A+B, one palette)" },
   "blend.normal":        { pt: "normal", en: "normal" },
   "blend.screen":        { pt: "screen", en: "screen" },
   "blend.multiply":      { pt: "multiply", en: "multiply" },
@@ -512,7 +513,7 @@ const STRINGS = {
   "blend.energy":        { pt: "cor da energia (passagens = opacidade)", en: "energy color (passes = opacity)" },
   "help.p.compare":      { pt: "<em>\"Comparar com cenário sem rede\"</em> (1B) roda o cálculo duas vezes: uma restrita à rede (ou ao grafo), outra livre no raster sem restrição — e o seletor <em>\"Cenário exibido\"</em> (painel de camadas, 3B) escolhe qual energia/passagens aparecem: <em>restrito à rede</em>, <em>sem restrição</em>, ou <em>diferença</em> (custo da rede, com as passagens dos dois cenários sobrepostas — ver abaixo). A rota/energia de terreno usa a grade 8-conectada (comprimento até ~8% acima do geométrico) — Δ pequenos na diferença ficam dentro dessa diferença metodológica, não são necessariamente um custo físico real de ficar na rede.", en: "<em>\"Compare with unconstrained\"</em> (1B) runs the compute twice: once constrained to the network (or graph), once free on the unconstrained raster — and the <em>\"Displayed scenario\"</em> picker (layer panel, 3B) chooses which energy/passes are shown: <em>network-constrained</em>, <em>unconstrained</em>, or <em>difference</em> (network cost, with both scenarios' passes overlaid — see below). The terrain route/energy comes from the 8-connected grid (length up to ~8% above the geometric path) — small Δ values in the difference view sit within that methodological gap, not necessarily a real physical cost of staying on the network." },
   "help.p.passes_dual":  { pt: "Vista de diferença: o canal AZUL (terreno, cenário sem restrição) — deixar em branco usa o mesmo valor do canal LARANJA (rede, cenário com restrição). As duas cores são complementares aditivas (somam branco), então onde os dois cenários passam juntos o brilho é máximo; cada cor sozinha fica no eixo azul–amarelo, discriminável mesmo com daltonismo vermelho-verde.", en: "Difference view: the BLUE channel (terrain, unconstrained scenario) — leave blank to use the same value as the ORANGE channel (network, constrained). The two colours are additive complements (they sum to white), so where both scenarios route together brightness is maximal; each colour alone sits on the blue–yellow axis, discriminable even with red–green colour-blindness." },
-  "help.p.passes_blend": { pt: "Mistura das passagens: rampa cinza; com modo \"soma\", células de alta passagem clareiam o campo de energia abaixo. \"Cor da energia\" pinta os corredores com o colormap do campo de energia e usa as passagens como opacidade — min/max/γ moldam a rampa de alfa. Mesmo comportamento auto/pinado da Energia.", en: 'Greyscale ramp; with "add" mode high-pass cells brighten the energy field beneath. "Energy color" paints corridors with the energy field\'s colormap and uses passes for opacity — min/max/γ shape the alpha ramp. Same auto / pinned-range behaviour as Energy.' },
+  "help.p.passes_blend": { pt: "Mistura das passagens: rampa cinza; com \"soma de cores\" (plus-lighter), células de alta passagem clareiam o que está pintado abaixo — é uma soma de CORES contra todo o fundo (basemap incluso), escalada pela opacidade, então satura pro branco sobre mapa claro. \"Soma de dados\" soma os CAMPOS célula a célula (na vista de diferença: com rede + sem rede) e pinta a soma numa paleta só, em composição normal — escala honesta, independente do basemap (indisponível no modo grafo, onde um canal é vetorial). \"Cor da energia\" pinta os corredores com o colormap do campo de energia e usa as passagens como opacidade — min/max/γ moldam a rampa de alfa. Mesmo comportamento auto/pinado da Energia.", en: 'Greyscale ramp; with "add colors" (plus-lighter) high-pass cells brighten whatever is painted beneath — it adds COLORS against the whole backdrop (basemap included), scaled by opacity, so it saturates to white over a light basemap. "Data sum" adds the FIELDS cell by cell (in the difference view: constrained + unconstrained) and paints the sum on one palette with normal compositing — honest scale, basemap-independent (unavailable in graph mode, where one channel is vector). "Energy color" paints corridors with the energy field\'s colormap and uses passes for opacity — min/max/γ shape the alpha ramp. Same auto / pinned-range behaviour as Energy.' },
   "btn.range_reset":     { pt: "Reset auto", en: "Reset ranges to auto" },
   "btn.download_bundle": { pt: "Baixar bundle (.zip)", en: "Download bundle (.zip)" },
   "btn.export_rendered": { pt: "Exportar imagens renderizadas (.zip)", en: "Export rendered images (.zip)" },
@@ -8267,7 +8268,35 @@ function rerenderCachedResult() {
   // brightens "highway" cells without imposing its own hue. When blend
   // mode is "normal" the renderer paints with full alpha so dim cells
   // read as solid black instead of transparent.
-  if (passes && dualPasses) {
+  if (passes && dualPasses && document.getElementById("passes-blend")?.value === "sum-data") {
+    // Soma de DADOS (A+B): os dois cenários somados célula a célula e
+    // pintados numa paleta só, em composição normal — escala honesta,
+    // independente do basemap (a "soma de cores"/plus-lighter soma as CORES
+    // já pintadas contra tudo que está por baixo). Usa os controles do canal
+    // A; os overrides B (3C.b) não se aplicam à soma. Mesmas opções de
+    // render do ramo de campo único logo abaixo — os dois têm que ler igual.
+    const a = r.passes, b2 = r.passesAlt.unconstrained;
+    const sum = new Float32Array(a.length);
+    for (let i = 0; i < a.length; i++) sum[i] = a[i] + b2[i];
+    const gamma = parseFloat(document.getElementById("passes-gamma")?.value);
+    const win = parseInt(document.getElementById("passes-mean-window")?.value, 10);
+    const out = renderFieldToDataURL(sum, W, H, {
+      usePercentileBounds: true,
+      percentiles: [10, 90],
+      maxAboveMin: true,
+      densityNormalize: true,
+      userMin: readRangeInput("passes-vmin", null),
+      userMax: readRangeInput("passes-vmax", null),
+      gamma: Number.isFinite(gamma) ? gamma : 1,
+      meanWindow: Number.isFinite(win) && win > 1 ? win : 1,
+      useGreyscale: true,
+      solidAlpha: false,
+      treatZeroAsTransparent: true,
+    });
+    state.passesDataUrl = out.url;
+    state.lastPassesAutoMin = out.lo;
+    state.lastPassesAutoMax = out.hi;
+  } else if (passes && dualPasses) {
     const gamma = parseFloat(document.getElementById("passes-gamma")?.value);
     const win = parseInt(document.getElementById("passes-mean-window")?.value, 10);
     const gammaB = parseFloat(document.getElementById("passes-gamma-b")?.value);
@@ -9099,9 +9128,9 @@ function applyLayerControls() {
     state.passesOverlay.setOpacity(state.graphPassesLayer ? 1 : (visible ? op : 0));
     const blend = document.getElementById("passes-blend")?.value || "normal";
     const el = state.passesOverlay.getElement();
-    // "energy" is a render mode (colour baked into the canvas), not a CSS
-    // blend — composite it normally.
-    if (el) el.style.mixBlendMode = blend === "energy" ? "normal" : blend;
+    // "energy" e "sum-data" são modos de RENDER (cor/soma assadas no canvas),
+    // não blends de CSS — compõem normal.
+    if (el) el.style.mixBlendMode = (blend === "energy" || blend === "sum-data") ? "normal" : blend;
   }
   // Reference-point markers: show/hide the whole set as a layer toggle.
   if (state.refMarkers) {
@@ -9121,9 +9150,11 @@ function applyLayerControls() {
     const pp = map.getPane("passesPane");
     if (pp) {
       pp.style.opacity = String(visible ? op : 0);
-      // Additive ("plus-lighter" / soma) blend makes the near-black low-pass
-      // lines contribute nothing, leaving only the bright corridors.
-      pp.style.mixBlendMode = blend === "energy" ? "normal" : blend;
+      // Additive ("plus-lighter" / soma de cores) blend makes the near-black
+      // low-pass lines contribute nothing, leaving only the bright corridors.
+      // "sum-data" não tem soma de dados possível aqui (canal vetorial) —
+      // compõe normal, como o modo "energy".
+      pp.style.mixBlendMode = (blend === "energy" || blend === "sum-data") ? "normal" : blend;
     }
   }
   // Reference geometry (GPX overlay): a simple show/hide toggle (no opacity).

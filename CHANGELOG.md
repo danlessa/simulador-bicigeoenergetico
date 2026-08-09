@@ -9,6 +9,20 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v67 — 2026-08-09
+
+**"Soma" que soma de verdade.** Novo modo de mistura das passagens — **"soma
+de dados (A+B numa paleta)"**: na vista de diferença (com rede × sem rede),
+os dois campos de passagens são somados **célula a célula** e a soma é
+pintada pelo pipeline de campo único (percentis/γ/janela do canal A) em
+composição normal — escala honesta e independente do basemap. O modo antigo
+foi renomeado **"soma de cores (plus-lighter)"** para dizer o que ele
+realmente faz: soma as CORES já pintadas contra tudo que está por baixo
+(basemap incluso), escalada pela opacidade — por isso satura pro branco
+sobre mapa claro e não se comporta como soma de dados. No modo grafo (um
+canal é vetorial) a soma de dados não é computável — o modo compõe normal.
+Puro re-render (regra dos botões de estilo: nunca dispara recompute).
+
 ## v66 — 2026-08-09
 
 **A família FGB agora alimenta a água (1C) e as pontes (1D) também.** Dois

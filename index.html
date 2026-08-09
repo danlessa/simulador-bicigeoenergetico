@@ -1749,6 +1749,16 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v67</strong> — 2026-08-09<br/>
+              <strong>"Soma" que soma de verdade.</strong> Novo modo de mistura
+              das passagens — <em>soma de dados (A+B numa paleta)</em>: na
+              vista de diferença, os dois cenários são somados célula a célula
+              e pintados numa paleta só, em composição normal — escala honesta,
+              sem o basemap entrar na conta. O modo antigo virou <em>soma de
+              cores (plus-lighter)</em>, que é o que ele sempre foi: soma as
+              cores pintadas contra todo o fundo, escalada pela opacidade (por
+              isso satura pro branco sobre mapa claro). No modo grafo a soma de
+              dados não se aplica (um canal é vetorial).</p>
               <p><strong>v66</strong> — 2026-08-09<br/>
               <strong>A família FGB agora alimenta a água e as pontes
               também.</strong> Dois botões novos, irmãos do pull de viário do
@@ -2568,7 +2578,13 @@
 
         <label data-i18n="passes.blend">Blend</label>
         <select id="passes-blend">
-          <option value="plus-lighter" data-i18n="blend.add">add (plus-lighter)</option>
+          <option value="plus-lighter" data-i18n="blend.add">add colors (plus-lighter)</option>
+          <!-- Soma de DADOS, não de cores: A+B célula a célula, pintada numa
+               paleta só — escala honesta, sem o basemap entrar na soma. Na
+               vista de diferença soma os dois cenários; fora dela é o campo
+               único em composição normal; no modo grafo (vetor+raster) não
+               há soma de dados possível — compõe normal. -->
+          <option value="sum-data"     data-i18n="blend.sum_data">data sum (A+B, one palette)</option>
           <option value="normal"       data-i18n="blend.normal">normal</option>
           <option value="screen"       data-i18n="blend.screen">screen</option>
           <option value="multiply"     data-i18n="blend.multiply">multiply</option>

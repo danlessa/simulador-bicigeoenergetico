@@ -592,7 +592,16 @@
 //              bridge/tunnel decks from the viário FGB (same abutment
 //              semantics, eleA/eleB null → DEM fallback; highway-only).
 //              Shared fgbStream helper; no engine change.
-const VERSION  = "v66";
+//   v66 → v67: New passes blend "soma de dados (A+B numa paleta)": in the
+//              raster difference view the two scenarios' passes fields are
+//              summed CELL BY CELL and painted through the single-field
+//              pipeline with normal compositing — an honest, basemap-
+//              independent scale. The old "soma" was renamed "soma de
+//              cores (plus-lighter)": it adds rendered COLORS against the
+//              whole backdrop (basemap included) scaled by opacity, which
+//              is not a data sum. Graph mode (vector channel) composites
+//              normal under sum-data. Pure re-render, no recompute.
+const VERSION  = "v67";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 
