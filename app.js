@@ -192,6 +192,11 @@ const STRINGS = {
   "status.fgb_no_ways":  { pt: "Nenhuma via do FGB na janela.", en: "No FGB ways in the view." },
   "status.fgb_failed":   { pt: "Consulta ao FGB falhou: {0}", en: "FGB query failed: {0}" },
   "status.fgb_too_big":  { pt: "Janela grande demais pro FGB (~{0}×{1} km) — aproxime o zoom.", en: "View too large for the FGB pull (~{0}×{1} km) — zoom in." },
+  "imp.fgb":             { pt: "Puxar água do FGB (América do Sul · nuvem)", en: "Pull water from FGB (South America · cloud)" },
+  "imp.fgb.title":       { pt: "As mesmas áreas d'água (natural=water / reservoir / riverbank) e rios (waterway=river) do pull do OSM, servidos do FlatGeobuf do projeto via HTTP Range — sem Overpass. SEM litoral: o mar não é preenchido (em DEM costeiro use o pull do OSM); rios em túnel não são filtrados (o FGB não traz a tag tunnel).", en: "The same water areas (natural=water / reservoir / riverbank) and rivers (waterway=river) as the OSM pull, served from the project's FlatGeobuf via HTTP Range — no Overpass. NO coastline: the open sea is not filled (use the OSM pull on coastal DEMs); tunnelled rivers are not filtered out (the FGB carries no tunnel tag)." },
+  "bridge.fgb":          { pt: "Puxar do FGB (América do Sul · nuvem)", en: "Pull from FGB (South America · cloud)" },
+  "bridge.fgb.title":    { pt: "As mesmas pontes/túneis de VIAS (highway=* com bridge/tunnel) do pull do OSM, servidas do FlatGeobuf via HTTP Range — sem Overpass. Sem elevações `ele` mapeadas (os apoios caem no DEM); estruturas ferroviárias não entram (o FGB só tem vias).", en: "The same ROAD bridges/tunnels (highway=* with bridge/tunnel) as the OSM pull, served from the FlatGeobuf via HTTP Range — no Overpass. No mapped `ele` elevations (abutments fall back to the DEM); railway structures are absent (the FGB is highway-only)." },
+  "bridges.none_fgb":    { pt: "Nenhuma ponte/túnel de via no FGB na janela.", en: "No road bridges/tunnels in the FGB view." },
   "net.example_viario":  { pt: "Viário RMSampa", en: "RMSampa road network" },
   "net.example_viario_tag": { pt: "~145 MB · nuvem · dados © OpenStreetMap, ODbL", en: "~145 MB · cloud · data © OpenStreetMap, ODbL" },
   "help.p.network_osm":  { pt: "Consulta o Overpass sobre a vista atual ∩ extensão do DEM. Áreas grandes podem demorar ou estourar limites do Overpass — aproxime o zoom primeiro.", en: "Queries Overpass over the current map view ∩ DEM extent. Large areas can take a while or hit Overpass limits — zoom in first." },
@@ -1582,6 +1587,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   document.getElementById("impassable-clear")?.addEventListener("click", clearImpassableMask);
   document.getElementById("impassable-osm")?.addEventListener("click", loadOsmWater);
+  document.getElementById("impassable-fgb")?.addEventListener("click", loadFgbWater);
   document.getElementById("ex-water")?.addEventListener("click", () =>
     loadImpassableFromUrl("https://simujaules.pedalhidrografi.co/mask/water_mask.tif", t("imp.example_water")));
   document.getElementById("imp-rivers")?.addEventListener("change", async () => { await rebuildOsmWaterMask(); });
@@ -1615,6 +1621,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- Bridges & tunnels (group 1d) ---
   document.getElementById("bridge-osm")?.addEventListener("click", loadOsmBridges);
+  document.getElementById("bridge-fgb")?.addEventListener("click", loadFgbBridges);
   document.getElementById("bridge-from-network")?.addEventListener("click", () => {
     const c = state.networkBridgeCandidates;
     if (!c || !c.length) { status.innerHTML = `<span style="color:#ff6b6b">${t("bridge.no_candidates")}</span>`; return; }
@@ -3980,8 +3987,21 @@ async function loadOsmNetwork() {
 // are interchangeable downstream). Reuses the flatgeobuf 3.36.0 the census
 // sampling already loads, and the same installNetworkFromLines tail.
 const VIARIO_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-viario.fgb";
+const WATER_AREAS_FGB_URL  = "https://telhas.pedalhidrografi.co/viario/south-america-water-areas.fgb";
+const WATER_RIVERS_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-water-rivers.fgb";
 const FGB_PULL_MAX_DEG2 = 0.25;        // ~55×50 km em SP — acima disso, aproxime o zoom
+const FGB_WATER_MAX_DEG2 = 1.0;        // água é bem mais esparsa que viário — teto 4× maior
 const FGB_PULL_TIMEOUT_MS = 120_000;
+
+// Stream de um FGB por bbox com timeout — a fetch órfã morre sozinha quando o
+// generator é solto (deserialize não aceita AbortSignal). Uma cópia pros três
+// pulls (viário, água, pontes).
+async function fgbStream(url, rect, onFeature) {
+  await Promise.race([
+    (async () => { for await (const f of flatgeobuf.deserialize(url, rect)) onFeature(f); })(),
+    new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), FGB_PULL_TIMEOUT_MS)),
+  ]);
+}
 
 async function loadFgbNetwork() {
   if (!state.dem) {
@@ -4039,22 +4059,17 @@ async function loadFgbNetwork() {
       meta.push(deck ? { deck: true, layer } : { deck: false, layer: 0 });
       if (deck) bridgeCandidates.push({ latlngs, kind: p.tunnel === "yes" ? "tunnel" : "bridge", layer, name: null });
     };
-    await Promise.race([
-      (async () => {
-        let n = 0;
-        for await (const f of flatgeobuf.deserialize(VIARIO_FGB_URL, rect)) {
-          const g = f?.geometry;
-          const p = f?.properties || {};
-          if (g?.type === "LineString") pushLine(g.coordinates, p);
-          else if (g?.type === "MultiLineString") for (const part of g.coordinates) pushLine(part, p);
-          if (++n % 2048 === 0) {
-            status.textContent = t("status.fgb_progress", n.toLocaleString());
-            progressBar.style.width = `${Math.min(70, 20 + n / 400)}%`;
-          }
-        }
-      })(),
-      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), FGB_PULL_TIMEOUT_MS)),
-    ]);
+    let n = 0;
+    await fgbStream(VIARIO_FGB_URL, rect, (f) => {
+      const g = f?.geometry;
+      const p = f?.properties || {};
+      if (g?.type === "LineString") pushLine(g.coordinates, p);
+      else if (g?.type === "MultiLineString") for (const part of g.coordinates) pushLine(part, p);
+      if (++n % 2048 === 0) {
+        status.textContent = t("status.fgb_progress", n.toLocaleString());
+        progressBar.style.width = `${Math.min(70, 20 + n / 400)}%`;
+      }
+    });
     if (!lines.length) throw new Error(t("status.fgb_no_ways"));
     if (state.dem !== demRef) {
       status.textContent = t("status.load_superseded");
@@ -4170,6 +4185,83 @@ async function loadOsmBridges() {
     installBridgesFromWays(ways, "OSM");
   } catch (err) {
     console.error("[osm-bridges]", err);
+    status.innerHTML = `<span style="color:#ff6b6b">${t("bridges.pull_failed", escapeHtml(err.message))}</span>`;
+  } finally {
+    progress.classList.remove("active");
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Pull road bridges/tunnels from the viário FlatGeobuf instead of Overpass:
+// the FGB carries the same OSM ways (osmium keeps the way splitting, so the
+// first/last vertex are still the abutments) with bridge/tunnel/layer as
+// columns. Two documented gaps vs the OSM pull: no mapped `ele` node
+// elevations (eleA/eleB = null → buildPortals falls back to the DEM at the
+// abutment cells) and highway-only coverage (railway decks absent). Same
+// #bridge-tunnels checkbox semantics, same installBridgesFromWays tail.
+async function loadFgbBridges() {
+  if (!state.dem) { status.innerHTML = `<span style="color:#ff6b6b">${t("status.load_dem_first")}</span>`; return; }
+  if (!state.dem.isGeographic) {
+    status.innerHTML = `<span style="color:#ff6b6b">${t("bridges.osm_need_geographic")}</span>`;
+    return;
+  }
+  if (typeof flatgeobuf === "undefined") { status.innerHTML = `<span style="color:#ff6b6b">${t("census.lib_missing")}</span>`; return; }
+  const demRef = state.dem;
+  const { originX, originY, H, W, dx, dy } = state.dem;
+  const b = map.getBounds();
+  const south = Math.max(b.getSouth(), originY - H * dy);
+  const north = Math.min(b.getNorth(), originY);
+  const west  = Math.max(b.getWest(),  originX);
+  const east  = Math.min(b.getEast(),  originX + W * dx);
+  if (!(south < north && west < east)) {
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.osm_no_intersect")}</span>`;
+    return;
+  }
+  if ((east - west) * (north - south) > FGB_PULL_MAX_DEG2) {
+    const kmX = (east - west) * 111.32 * Math.cos(((south + north) / 2) * Math.PI / 180);
+    const kmY = (north - south) * 111.32;
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.fgb_too_big", kmX.toFixed(0), kmY.toFixed(0))}</span>`;
+    return;
+  }
+  const withTunnels = !!document.getElementById("bridge-tunnels")?.checked;
+  const btn = document.getElementById("bridge-fgb");
+  if (btn) btn.disabled = true;
+  progress.classList.add("active");
+  progressBar.style.width = "20%";
+  status.textContent = t("status.fgb_querying");
+  try {
+    const rect = { minX: west, minY: south, maxX: east, maxY: north };
+    const ways = [];
+    const pushWay = (coords, p) => {
+      if (!Array.isArray(coords) || coords.length < 2) return;
+      ways.push({
+        latlngs: coords.map((c) => [c[1], c[0]]),
+        kind: p.tunnel === "yes" ? "tunnel" : "bridge",   // mesmo desempate do pull OSM
+        layer: parseInt(p.layer, 10) || 0,
+        name: null,
+        eleA: null, eleB: null,                            // sem `ele` no FGB → DEM nos apoios
+      });
+    };
+    let n = 0;
+    await fgbStream(VIARIO_FGB_URL, rect, (f) => {
+      const g = f?.geometry;
+      const p = f?.properties || {};
+      const isBridge = p.bridge && p.bridge !== "no";
+      const isTunnel = p.tunnel === "yes";
+      if (!isBridge && !(withTunnels && isTunnel)) return;
+      if (g?.type === "LineString") pushWay(g.coordinates, p);
+      else if (g?.type === "MultiLineString") for (const part of g.coordinates) pushWay(part, p);
+      if (++n % 512 === 0) status.textContent = t("status.fgb_progress", n.toLocaleString());
+    });
+    if (!ways.length) throw new Error(t("bridges.none_fgb"));
+    if (state.dem !== demRef) {
+      status.textContent = t("status.load_superseded");
+      return;
+    }
+    progressBar.style.width = "80%";
+    installBridgesFromWays(ways, "FGB");
+  } catch (err) {
+    console.error("[fgb-bridges]", err);
     status.innerHTML = `<span style="color:#ff6b6b">${t("bridges.pull_failed", escapeHtml(err.message))}</span>`;
   } finally {
     progress.classList.remove("active");
@@ -4950,7 +5042,7 @@ async function rebuildOsmWaterMask() {
   const fi = document.getElementById("impassable-file"); if (fi) fi.value = "";
   // Wrap as a DEM-grid raster so the uploaded-mask pipeline consumes it
   // unchanged (resample is identity; Invert/corridors/overlay/bundle reused).
-  applyImpassableRaster({ width: W, height: H, data, dx, dy, originX, originY, epsg: 4326 }, "OSM water");
+  applyImpassableRaster({ width: W, height: H, data, dx, dy, originX, originY, epsg: 4326 }, g.label || "OSM water");
   status.textContent = cells ? t("status.water_done", cells.toLocaleString()) : t("status.water_none");
   progress.classList.remove("active");
 }
@@ -5023,6 +5115,71 @@ async function loadOsmWater() {
     await rebuildOsmWaterMask();
   } catch (err) {
     console.error("[osm-water]", err);
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.water_failed", escapeHtml(err.message))}</span>`;
+  } finally {
+    progress.classList.remove("active");
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Pull the water mask from the project's water FlatGeobufs (amora's
+// build-viario.py --water on gs://telhas): areas (natural=water /
+// landuse=reservoir / waterway=riverbank polygons) + waterway=river lines —
+// the same feature classes as the Overpass pull, minus two documented gaps:
+// NO coastline layer (the open sea is not filled — use the OSM pull on
+// coastal DEMs) and no tunnel tag on rivers (tunnelled rivers stay blocked,
+// a tiny over-block the Overpass pull filters out). Fills the SAME
+// state.osmWaterGeom cache and reuses rebuildOsmWaterMask(), so the
+// #imp-rivers toggle re-applies without re-querying, exactly like OSM.
+async function loadFgbWater() {
+  if (!state.dem) { status.innerHTML = `<span style="color:#ff6b6b">${t("status.load_dem_first")}</span>`; return; }
+  if (!state.dem.isGeographic) { status.innerHTML = `<span style="color:#ff6b6b">${t("status.water_geographic")}</span>`; return; }
+  if (typeof flatgeobuf === "undefined") { status.innerHTML = `<span style="color:#ff6b6b">${t("census.lib_missing")}</span>`; return; }
+  const demRef = state.dem;
+  const { originX, originY, H, W, dx, dy } = state.dem;
+  // Full DEM extent — a mask should cover the whole grid (same as the OSM pull).
+  const south = originY - H * dy, north = originY, west = originX, east = originX + W * dx;
+  if ((east - west) * (north - south) > FGB_WATER_MAX_DEG2) {
+    const kmX = (east - west) * 111.32 * Math.cos(((south + north) / 2) * Math.PI / 180);
+    const kmY = (north - south) * 111.32;
+    status.innerHTML = `<span style="color:#ff6b6b">${t("status.fgb_too_big", kmX.toFixed(0), kmY.toFixed(0))}</span>`;
+    return;
+  }
+  const btn = document.getElementById("impassable-fgb");
+  if (btn) btn.disabled = true;
+  progress.classList.add("active");
+  progressBar.style.width = "10%";
+  status.textContent = t("status.fgb_querying");
+  try {
+    const rect = { minX: west, minY: south, maxX: east, maxY: north };
+    const toGrid = (c) => llToGridFrac(c[1], c[0]);          // [lng,lat] GeoJSON
+    const bodies = [];
+    const rivers = [];
+    // Áreas: cada polígono (anéis externo+furos) é UM corpo — o preenchimento
+    // even-odd de rebuildOsmWaterMask corta os furos por paridade.
+    await fgbStream(WATER_AREAS_FGB_URL, rect, (f) => {
+      const g = f?.geometry;
+      if (g?.type === "Polygon") bodies.push({ rings: g.coordinates.map((r) => r.map(toGrid)) });
+      else if (g?.type === "MultiPolygon") for (const poly of g.coordinates) bodies.push({ rings: poly.map((r) => r.map(toGrid)) });
+    });
+    progressBar.style.width = "45%";
+    await fgbStream(WATER_RIVERS_FGB_URL, rect, (f) => {
+      const g = f?.geometry;
+      if (g?.type === "LineString") rivers.push(g.coordinates.map(toGrid));
+      else if (g?.type === "MultiLineString") for (const part of g.coordinates) rivers.push(part.map(toGrid));
+    });
+    if (!bodies.length && !rivers.length) {
+      status.textContent = t("status.water_none");
+      return;
+    }
+    if (state.dem !== demRef) {
+      status.textContent = t("status.load_superseded");
+      return;
+    }
+    state.osmWaterGeom = { bodies, rivers, coastlines: [], label: "FGB água" };
+    await rebuildOsmWaterMask();
+  } catch (err) {
+    console.error("[fgb-water]", err);
     status.innerHTML = `<span style="color:#ff6b6b">${t("status.water_failed", escapeHtml(err.message))}</span>`;
   } finally {
     progress.classList.remove("active");

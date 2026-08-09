@@ -9,6 +9,28 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v66 — 2026-08-09
+
+**A família FGB agora alimenta a água (1C) e as pontes (1D) também.** Dois
+botões novos, irmãos do pull de viário do v65 — tudo servido por HTTP Range
+dos FlatGeobufs do projeto no `gs://telhas`, sem Overpass:
+
+- **1C · "Puxar água do FGB (América do Sul · nuvem)"** — as mesmas classes
+  d'água do pull do OSM (áreas `natural=water` / `landuse=reservoir` /
+  `waterway=riverbank` + linhas `waterway=river`), preenchendo o MESMO cache
+  (`osmWaterGeom`) e a mesma rasterização — o toggle "rios intransponíveis"
+  segue re-aplicando sem re-consultar. Duas lacunas documentadas (tooltip do
+  botão): **sem litoral** (o mar não é preenchido — em DEM costeiro use o
+  pull do OSM) e sem filtro de rios em túnel (o FGB não traz a tag).
+- **1D · "Puxar do FGB (América do Sul · nuvem)"** — pontes/túneis de VIAS
+  do FGB do viário (o `osmium` preserva o recorte das ways nos apoios, então
+  a semântica de tabuleiro é a mesma do Overpass; `bridge`/`tunnel`/`layer`
+  em colunas). Sem `ele` mapeado (os apoios caem no DEM, o fallback já
+  documentado) e sem estruturas ferroviárias (o FGB é highway-only). Mesmo
+  checkbox de túneis, mesma cauda `installBridgesFromWays`.
+
+Helper `fgbStream` compartilhado pelos três pulls; nenhuma mudança de engine.
+
 ## v65 — 2026-08-08
 
 **Viário do FGB, sem Overpass.** Novo botão em 1B — **"Puxar viário do FGB

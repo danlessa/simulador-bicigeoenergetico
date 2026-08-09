@@ -21,7 +21,12 @@ loads `app.js` directly and libraries come from CDNs with SRI hashes.
   (`loadFgbNetwork`, v65 — amora's `build-viario.py` product on `gs://telhas`,
   bytes-of-the-bbox via HTTP Range; same deck/layer normalization, same
   `installNetworkFromLines` tail, flatgeobuf 3.36.0 already shipped for the
-  census sampler).
+  census sampler). v66 extended the FGB family to 1C and 1D: `loadFgbWater`
+  (water areas + rivers FGBs → the same `osmWaterGeom` cache and
+  `rebuildOsmWaterMask` tail; NO coastline layer — the sea is not filled —
+  and no tunnel filter on rivers) and `loadFgbBridges` (deck ways from the
+  viário FGB → `installBridgesFromWays`; `eleA/eleB` null → DEM fallback,
+  highway-only so railway decks are absent). All three share `fgbStream`.
 - `energy-worker.js` — the compute engine (Web Worker): Dijkstra with
   passes count, A* top-N routes, multi-ref density, layered-DP max-cost
   path, IDW network fill. Pure JS on typed arrays.

@@ -1043,6 +1043,11 @@
           <span data-i18n="imp.example_water">Águas RMSampa</span> <span class="ex-tag" data-i18n="imp.example_water_tag">~2,4 MB · nuvem</span>
         </button>
         <button type="button" class="secondary" id="impassable-osm" data-i18n="imp.osm" style="margin-top: 4px;">Pull water from OSM</button>
+        <!-- Mesmas classes d'água do pull OSM, servidas dos FGBs de água do
+             projeto (build-viario.py --water no gs://telhas) via HTTP Range —
+             sem Overpass. Sem litoral (mar não é preenchido) e sem filtro de
+             rios em túnel — ver o title/i18n. -->
+        <button type="button" class="secondary" id="impassable-fgb" data-i18n="imp.fgb" data-i18n-title="imp.fgb.title" style="margin-top: 4px;">Puxar água do FGB (América do Sul · nuvem)</button>
         <label id="imp-corridor-row" style="display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 11px; color: var(--text); opacity: 0.55;">
           <input type="checkbox" id="imp-corridor" checked disabled />
           <span data-i18n="imp.corridor">Network carves passable corridors across the mask</span>
@@ -1084,6 +1089,10 @@
           <span data-i18n="bridge.tunnels">Include tunnels (tunnel=yes)</span>
         </label>
         <button type="button" class="secondary" id="bridge-osm" data-i18n="bridge.osm">Pull bridges &amp; tunnels from OSM</button>
+        <!-- Mesmas pontes/túneis de vias, servidas do FGB do viário via HTTP
+             Range — sem Overpass. Sem `ele` mapeado (apoios caem no DEM) e
+             sem estruturas ferroviárias — ver o title/i18n. -->
+        <button type="button" class="secondary" id="bridge-fgb" data-i18n="bridge.fgb" data-i18n-title="bridge.fgb.title" style="margin-top: 4px;">Puxar do FGB (América do Sul · nuvem)</button>
         <button type="button" class="secondary" id="bridge-from-network" data-i18n="bridge.from_network" style="margin-top: 4px;" disabled>Extract from loaded network</button>
         <button type="button" class="secondary" id="bridge-clear" data-i18n="bridge.clear" style="margin-top: 4px;">Clear bridges</button>
         <!-- On-map drawing: portal lines (a shortcut between the two endpoints). -->
@@ -1740,6 +1749,18 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v66</strong> — 2026-08-09<br/>
+              <strong>A família FGB agora alimenta a água e as pontes
+              também.</strong> Dois botões novos, irmãos do pull de viário do
+              v65: em 1C, <em>Puxar água do FGB</em> monta a máscara d'água
+              (áreas + rios) dos FlatGeobufs do projeto — mesmo cache e mesma
+              rasterização do pull do OSM, então o toggle de rios segue
+              funcionando; <strong>sem litoral</strong> (em DEM costeiro use o
+              OSM) e sem filtro de rios em túnel. Em 1D, <em>Puxar do
+              FGB</em> traz pontes/túneis de vias do FGB do viário — mesmos
+              apoios/tabuleiros do Overpass, sem <code>ele</code> mapeado (os
+              apoios caem no DEM) e sem ferrovias. Tudo por HTTP Range, sem
+              depender do servidor do OSM.</p>
               <p><strong>v65</strong> — 2026-08-08<br/>
               <strong>Viário do FGB, sem Overpass.</strong> Novo botão em 1B —
               <em>Puxar viário do FGB (América do Sul · nuvem)</em> — carrega a

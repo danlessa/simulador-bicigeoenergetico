@@ -583,7 +583,16 @@
 //              edge), and clients that installed v64 in that window
 //              precached the old app.js. deploy.sh now sources .env so the
 //              purge runs on every deploy.
-const VERSION  = "v65";
+//   v65 → v66: The FGB family now feeds groups 1C and 1D too: "Puxar água do
+//              FGB" pulls the water mask from the project's water FlatGeobufs
+//              (areas + rivers; same classes as the OSM pull, filling the
+//              same osmWaterGeom cache so #imp-rivers re-applies — but NO
+//              coastline layer and no tunnel filter on rivers, both stated
+//              in the button tooltip), and "Puxar do FGB" in 1D pulls road
+//              bridge/tunnel decks from the viário FGB (same abutment
+//              semantics, eleA/eleB null → DEM fallback; highway-only).
+//              Shared fgbStream helper; no engine change.
+const VERSION  = "v66";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 
