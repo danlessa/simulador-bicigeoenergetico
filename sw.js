@@ -601,7 +601,16 @@
 //              whole backdrop (basemap included) scaled by opacity, which
 //              is not a data sum. Graph mode (vector channel) composites
 //              normal under sum-data. Pure re-render, no recompute.
-const VERSION  = "v67";
+//   v67 → v68: UI tightening, no engine change. The "Calcular contagem de
+//              passagens" checkbox is gone — passes are now ALWAYS computed
+//              (identical to it being permanently checked; old bundles with
+//              wantPasses:false gain passes on replay). 1B renames:
+//              "Interpolar campo de energia" (was "entre células fora da
+//              rede") and "Usar grafo viário ao invés de rasterizado" (was
+//              "Calcular sobre o grafo da rede"). The six 1B numeric params
+//              now sit in a 2×3 stacked grid, and 2A's Mode→budget fields
+//              in a two-column grid (readouts α_r/α_a/β unchanged below).
+const VERSION  = "v68";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

@@ -181,7 +181,7 @@ const STRINGS = {
   "net.clear":           { pt: "Limpar rede",  en: "Clear network" },
   "net.render_width":    { pt: "largura da linha (m)", en: "line width (m)" },
   "net.constrain":       { pt: "Restringir cálculo à rede", en: "Constrain compute to network" },
-  "net.graph_mode":      { pt: "Calcular sobre o grafo da rede (seguir os vetores)", en: "Compute on network graph (follow vectors)" },
+  "net.graph_mode":      { pt: "Usar grafo viário ao invés de rasterizado", en: "Use road graph instead of rasterized" },
   "net.junctions":       { pt: "junções", en: "junctions" },
   "net.junctions_crossings": { pt: "nos cruzamentos", en: "at crossings" },
   "net.junctions_shared":    { pt: "extremos comuns", en: "shared endpoints" },
@@ -266,7 +266,7 @@ const STRINGS = {
   "param.string_pull":   { pt: "Suavizar rotas exibidas (string pulling)", en: "Smooth displayed routes (string pulling)" },
   "param.string_pull.title": { pt: "Encurta pós-cálculo a rota exibida (e as top-N) ligando vértices por segmentos retos custeados pelo mesmo modelo — a energia mostrada é a soma integrada da própria linha. Ida-e-volta e maximizar ficam de fora.", en: "Post-hoc shortens the displayed route (and top-N) by joining vertices with straight segments costed by the same model — the shown energy is the line's own integrated sum. Round-trip and maximize are excluded." },
   "stats.pulled":        { pt: "rota suavizada (string pulling) — energia = soma integrada da linha exibida", en: "route smoothed (string pulling) — energy = the displayed line's own integrated sum" },
-  "net.interp":          { pt: "Interpolar entre células fora da rede", en: "Interpolate across non-network cells" },
+  "net.interp":          { pt: "Interpolar campo de energia", en: "Interpolate energy field" },
   "net.max_distance":    { pt: "distância máx (células)", en: "max distance (cells)" },
   "net.smoothing":       { pt: "suavizações", en: "smoothing iters" },
   "net.no_network":      { pt: "Nenhuma rede carregada.", en: "No network loaded." },
@@ -348,7 +348,6 @@ const STRINGS = {
   "budget.leg":          { pt: "por perna", en: "each leg" },
   "budget.total":        { pt: "ida e volta", en: "round trip" },
   "help.p.budget_mode":  { pt: "Só no modo ida-e-volta. \"Cada perna\": célula visível se ida ≤ orçamento E volta ≤ orçamento (total pode chegar a 2×). \"Total\": ida + volta ≤ orçamento. A contagem de passagens conta apenas trajetos até células exibidas (dentro do orçamento); células-corredor ainda acumulam os trajetos que passam por elas. Perto da fronteira do orçamento as subárvores ficam truncadas e a contagem fica sistematicamente mais baixa ali; células cuja alcançabilidade é cortada pela borda do DEM sofrem o mesmo viés — compare corredores só bem dentro do orçamento e longe das bordas.", en: 'Round-trip mode only. "Each leg": a cell is shown if out ≤ budget AND back ≤ budget (totals can reach 2×). "Total": out + back ≤ budget. The passes count only counts trajectories to displayed (within-budget) cells; corridor cells still accumulate the trajectories passing through them. Near the budget frontier subtrees are truncated and the count is systematically lower there; cells whose reachability is clipped by the DEM border carry the same bias — compare corridors only well inside the budget and away from the edges.' },
-  "param.want_passes":   { pt: "Calcular contagem de passagens", en: "Compute passes count (route density)" },
   "param.want_topn":     { pt: "Calcular top-N rotas", en: "Compute top-N routes" },
   "param.want_density":  { pt: "Calcular densidade multi-referência", en: "Compute multi-reference density" },
   "param.backend_url":   { pt: "URL do backend", en: "Backend URL" },
@@ -597,7 +596,7 @@ const STRINGS = {
   "help.p.network":      { pt: "Quando um arquivo de linhas vetoriais é carregado, toda a análise fica restrita às células tocadas por essas linhas — Dijkstra ignora qualquer célula fora da rede, e cliques no mapa \"agarram\" para a célula de rede mais próxima dentro do raio de snap configurado. O exemplo \"Viário RMSampa\" é dado © OpenStreetMap, licença ODbL.", en: 'When a vector-line file is loaded, the analysis is constrained to cells touched by those lines — Dijkstra ignores any cell outside the network, and map clicks "snap" to the nearest network cell within the configured snap radius. The "Viário RMSampa" example is data © OpenStreetMap, ODbL licence.' },
   "help.p.network_extra":{ pt: "<strong>Largura da linha</strong> (em células) controla a espessura do carimbo durante a rasterização. <strong>Raio de snap</strong> é a distância máxima (em células) que o clique procura uma célula de rede antes de desistir. As coordenadas das linhas são reprojetadas via <code>proj4js</code> para o CRS do DEM antes da rasterização.", en: '<strong>Line width</strong> (in cells) controls the stamp thickness during rasterisation. <strong>Snap radius</strong> is the maximum distance (in cells) a click searches for a network cell before giving up. Line coordinates are reprojected via <code>proj4js</code> to the DEM CRS before rasterising.' },
   "help.h.graph":        { pt: "Grafo da rede (seguir os vetores)", en: "Network graph (follow the vectors)" },
-  "help.p.graph":        { pt: "Com <em>\"Calcular sobre o grafo da rede\"</em> (1B) ligado, o cálculo troca de motor: em vez do raster 8-conectado, roda sobre o grafo das próprias linhas vetoriais — nós nos vértices e nas junções, arestas custadas pelo mesmo modelo assimétrico ao longo de cada segmento. \"Restringir\" fica sempre ligado e travado (o cálculo já é só sobre a rede); \"comparar com cenário sem rede\" continua disponível. <strong>Junções</strong> controla como cruzamentos viram nós: <em>nos cruzamentos</em> também conecta interseções geométricas calculadas (viadutos coplanares se conectam, cruzamentos em nível diferente não); <em>extremos comuns</em> só conecta onde as linhas já compartilham um vértice coincidente. Pontes/túneis da própria rede (puxados do OSM) são achatados a um tabuleiro reto entre seus apoios — mesmos dados do 1D, mas sem aresta-portal. O snap de clique no grafo usa um raio fixo de 15 m, independente do \"raio de snap\" (em células) do 1B, que só vale no modo raster.", en: "With <em>\"Compute on network graph\"</em> (1B) on, the compute switches engines: instead of the 8-connected raster, it runs over the graph of the vector lines themselves — nodes at vertices and junctions, edges costed by the same asymmetric model along each segment. \"Constrain\" is forced on and locked (the compute is already network-only); \"compare with unconstrained\" is still available. <strong>Junctions</strong> controls how crossings become nodes: <em>at crossings</em> also connects computed geometric intersections (co-planar overpasses connect, different-level crossings don't); <em>shared endpoints</em> only connects where lines already share a coincident vertex. The network's own bridges/tunnels (pulled from OSM) are flattened to a straight deck between their abutments — same 1D data, but no portal edge. Click-snapping on the graph uses a fixed 15 m radius, independent of 1B's \"snap radius\" (in cells), which only applies to the raster mode." },
+  "help.p.graph":        { pt: "Com <em>\"Usar grafo viário ao invés de rasterizado\"</em> (1B) ligado, o cálculo troca de motor: em vez do raster 8-conectado, roda sobre o grafo das próprias linhas vetoriais — nós nos vértices e nas junções, arestas custadas pelo mesmo modelo assimétrico ao longo de cada segmento. \"Restringir\" fica sempre ligado e travado (o cálculo já é só sobre a rede); \"comparar com cenário sem rede\" continua disponível. <strong>Junções</strong> controla como cruzamentos viram nós: <em>nos cruzamentos</em> também conecta interseções geométricas calculadas (viadutos coplanares se conectam, cruzamentos em nível diferente não); <em>extremos comuns</em> só conecta onde as linhas já compartilham um vértice coincidente. Pontes/túneis da própria rede (puxados do OSM) são achatados a um tabuleiro reto entre seus apoios — mesmos dados do 1D, mas sem aresta-portal. O snap de clique no grafo usa um raio fixo de 15 m, independente do \"raio de snap\" (em células) do 1B, que só vale no modo raster.", en: "With <em>\"Use road graph instead of rasterized\"</em> (1B) on, the compute switches engines: instead of the 8-connected raster, it runs over the graph of the vector lines themselves — nodes at vertices and junctions, edges costed by the same asymmetric model along each segment. \"Constrain\" is forced on and locked (the compute is already network-only); \"compare with unconstrained\" is still available. <strong>Junctions</strong> controls how crossings become nodes: <em>at crossings</em> also connects computed geometric intersections (co-planar overpasses connect, different-level crossings don't); <em>shared endpoints</em> only connects where lines already share a coincident vertex. The network's own bridges/tunnels (pulled from OSM) are flattened to a straight deck between their abutments — same 1D data, but no portal edge. Click-snapping on the graph uses a fixed 15 m radius, independent of 1B's \"snap radius\" (in cells), which only applies to the raster mode." },
   "help.h.interp":       { pt: "Interpolação fora da rede", en: "Off-network interpolation" },
   "help.p.interp":       { pt: "Visualização opcional: preenche células fora da rede com a média dos valores da rede em redor, usando o mesmo algoritmo do GDAL <code>fillnodata</code>. Para cada célula vazia, busca em 8 direções até achar uma célula de rede dentro de <strong>distância máx</strong> (em células); calcula a média ponderada por <code>1/d²</code> dos acertos. Em seguida, aplica <strong>suavizações</strong> passes de média 3×3 sobre o preenchimento — preservando os valores originais da rede.", en: 'Optional visualisation: fills off-network cells with a weighted mean of nearby on-network values, using the same algorithm as GDAL <code>fillnodata</code>. For each empty cell, scan 8 directions for a network cell within <strong>max distance</strong> (cells); compute a <code>1/d²</code>-weighted mean of the hits. Then apply <strong>smoothing iters</strong> 3×3 mean passes over the fill, preserving the original network values.' },
   "help.p.interp_only":  { pt: "Apenas para visualização; a análise (Dijkstra, top-N, densidade) continua estritamente sobre a rede.", en: 'For visualisation only; the analysis (Dijkstra, top-N, density) stays strictly on the network.' },
@@ -904,7 +903,7 @@ function updateCostReadout() {
 const PERSIST_IDS = [
   // Parameters
   "mode", "mass", "crr", "cda", "rho", "keff", "pflat", "climb-thr", "ksmooth", "deadband", "dem-smooth", "e-max", "e-max-mode",
-  "want-passes", "want-topn", "want-density",
+  "want-topn", "want-density",
   "n-refs", "ref-sampling", "refs-visible",
   "backend-url", "orchestrator-url", "cloud-keep-warm", "cloud-machine", "cloud-no-fallback", "n-routes", "penalty", "repulsion-mode",
   "routes-colormap", "colormap",
@@ -1385,8 +1384,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   // Density toggle reveals the multi-ref controls and locks out the
-  // single-source toggles (wantPasses / wantTopN) that don't compose
-  // with multi-reference density.
+  // single-source top-N toggle, which doesn't compose with multi-reference
+  // density. (Passes are always computed since v68 — no toggle to lock.)
   const densCheck = document.getElementById("want-density");
   const densExtra = document.getElementById("density-extra");
   if (densCheck && densExtra) {
@@ -1394,14 +1393,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const on = densCheck.checked;
       densExtra.style.display = on ? "" : "none";
       if (on) setGroupOpen("pick-points-group", true); // surface the census/refs panel
-
-      const passesCheck = document.getElementById("want-passes");
-      const passesLabel = passesCheck?.closest("label");
-      if (passesCheck) {
-        if (on) { passesCheck.checked = false; passesCheck.disabled = true; }
-        else passesCheck.disabled = false;
-      }
-      if (passesLabel) passesLabel.style.opacity = on ? "0.5" : "1";
 
       const topnCheck = document.getElementById("want-topn");
       const topnLabel = topnCheck?.closest("label");
@@ -1472,7 +1463,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // `alpha` scales the explored region (flat reach ∝ eMax/alpha); the
   // compute-source selector switches the engine model (handled below with the
   // radios, since they share a name rather than a single id).
-  for (const id of ["mode", "want-passes", "want-topn", "n-routes", "want-density",
+  for (const id of ["mode", "want-topn", "n-routes", "want-density",
                     "n-refs", "e-max", "mass", "crr", "cda", "rho", "keff", "pflat", "ksmooth", "max-workers",
                     // Network/graph + interpolation controls — they move the
                     // estimate now that interp is a separate phase and graph
@@ -5822,8 +5813,7 @@ function renderGraphOverlay() {
   // Passes. Network = the graph "follow-the-vectors" corridors (3C.a). When a
   // compare produced terrain (free-movement) passes, the difference / unconstrained
   // views ALSO show them as a RASTER overlay (3C.b) — the terrain is NOT graphed.
-  const passesWanted = !!document.getElementById("want-density")?.checked || !!document.getElementById("want-passes")?.checked;
-  const hasPasses = passesWanted && result.edgePasses && result.edgePasses.some((v) => v > 0);
+  const hasPasses = !!(result.edgePasses && result.edgePasses.some((v) => v > 0));
   const terrainPasses = passesAlt && passesAlt.unconstrained;
   const showNet = hasPasses && energySel !== "unconstrained";              // graph vector passes
   const showTerr = !!terrainPasses && (energySel === "unconstrained" || energySel === "difference");
@@ -6619,8 +6609,10 @@ runBtn.addEventListener("click", async () => {
   // 2·eMax) or the round-trip sum ("total").
   const eMaxMode = document.getElementById("e-max-mode")?.value || "leg";
 
-  // Optional extras (default off — energy-only is the fast path)
-  const wantPasses = !!document.getElementById("want-passes")?.checked;
+  // Optional extras. Passes are ALWAYS computed since v68 (the "contagem de
+  // passagens" checkbox was dropped — behaviour is identical to it being
+  // permanently checked); the density branch ignores the flag as before.
+  const wantPasses = true;
   const wantTopN   = !!document.getElementById("want-topn")?.checked;
   const nRoutes    = Math.max(1, Math.min(20, parseInt(document.getElementById("n-routes")?.value, 10) || 3));
   const penalty    = Math.max(0, parseFloat(document.getElementById("penalty")?.value) || 2.0);
@@ -10096,7 +10088,6 @@ function updateCloudTransferEstimate() {
   const N = state.dem.H * state.dem.W;
   const mode = document.getElementById("mode")?.value || "from";
   const wantDensity = !!document.getElementById("want-density")?.checked;
-  const wantPasses  = !!document.getElementById("want-passes")?.checked;
   const hasNetwork  = networkConstraintActive();
   const nPortals    = buildPortals()?.n || 0;
 
@@ -10105,9 +10096,9 @@ function updateCloudTransferEstimate() {
   // header is negligible against the grid.
   const up = 4 * N + N + (hasNetwork ? N : 0) + nPortals * 32;
   // Download: density returns f64 density (8·N) + f32 energy (4·N); single
-  // returns f32 energy (4·N) + optional f64 passes (8·N — the /single wire
-  // ships passes as f64 to match the JS worker's Float64Array).
-  const down = wantDensity ? (8 * N + 4 * N) : (4 * N + (wantPasses ? 8 * N : 0));
+  // returns f32 energy (4·N) + f64 passes (8·N — always on since v68; the
+  // /single wire ships passes as f64 to match the JS worker's Float64Array).
+  const down = wantDensity ? (8 * N + 4 * N) : (4 * N + 8 * N);
   // Rough wire time at the assumed link speeds (bytes·8 / (Mbps·1e6)).
   const wireMs = (up * 8 / (UPLINK_MBPS * 1e6) + down * 8 / (DOWNLINK_MBPS * 1e6)) * 1000;
   line.textContent = t("cloud.transfer", formatBytes(up), formatBytes(down), formatDuration(wireMs));
@@ -11054,7 +11045,9 @@ function buildMetadata(result, withOutputs = true) {
     eMaxMode:      document.getElementById("e-max-mode")?.value || "leg",
     src:           state.src,
     dst:           state.dst,
-    wantPasses:    !!document.getElementById("want-passes")?.checked,
+    // Sempre true desde o v68 (checkbox removido) — mantido no bundle para
+    // que versões antigas do app importem com o checkbox marcado.
+    wantPasses:    true,
     wantTopN:      !!document.getElementById("want-topn")?.checked,
     nRoutes:       parseInt(document.getElementById("n-routes")?.value, 10) || 3,
     penalty:       parseFloat(document.getElementById("penalty")?.value) || 2.0,
@@ -11667,7 +11660,7 @@ function applyMetadataToUI(md, bin = {}) {
   set("climb-thr", p.climbThr != null ? p.climbThr * 100 : p.climbThr); // bundle stores grade; input is %
   set("e-max", p.eMax);
   set("e-max-mode", p.eMaxMode);
-  check("want-passes", p.wantPasses);
+  // p.wantPasses é ignorado desde o v68 — passes sempre são calculadas.
   check("want-topn", p.wantTopN);
   set("n-routes", p.nRoutes);
   set("penalty", p.penalty);

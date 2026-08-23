@@ -9,6 +9,20 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v68 — 2026-08-23
+
+**2A e 1B mais enxutos.** O checkbox **"Calcular contagem de passagens"** foi
+removido — a contagem agora é **sempre** calculada (comportamento idêntico a
+deixá-lo permanentemente marcado; bundles antigos com `wantPasses: false`
+passam a exibir passes ao recarregar). Dois renomes em 1B: "Interpolar entre
+células fora da rede" → **"Interpolar campo de energia"**, e "Calcular sobre
+o grafo da rede (seguir os vetores)" → **"Usar grafo viário ao invés de
+rasterizado"**. Os seis parâmetros numéricos da rede (larguras, snap,
+junções, distância máx, suavizações) viraram uma grade 2×3, e os campos do
+2A (Modo → "Orçamento aplica-se a") foram compactados em duas colunas
+(rótulo sobre o campo); os coeficientes derivados α_r/α_a/β seguem abaixo.
+Só UI — motores intocados.
+
 ## v67 — 2026-08-09
 
 **"Soma" que soma de verdade.** Novo modo de mistura das passagens — **"soma

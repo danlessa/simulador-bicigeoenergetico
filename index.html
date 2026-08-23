@@ -438,6 +438,15 @@
     .kv-table td.kv-val > input, .kv-table td.kv-val > select { width: 100%; }
     /* Derived read-only coefficients (α_r/α_a/β) — smaller + muted, below the inputs. */
     .kv-table tr.kv-readout td { font-size: 9px; color: var(--muted); padding-top: 1px; padding-bottom: 1px; }
+    /* Grade 2-col label-sobre-input (1B rede / 2A parâmetros): pares
+       empilhados em duas colunas — mais compacto que a antiga kv-table de
+       uma linha por campo. Células condicionais (ex.: #e-max-mode-row)
+       ligam/desligam via display no <div> da célula, como a antiga <tr>. */
+    .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; margin-top: 6px; }
+    /* Fundo-alinhado: quando o rótulo do vizinho quebra em 2 linhas, os
+       campos da mesma linha continuam alinhados entre as colunas. */
+    .grid-2col > div { display: flex; flex-direction: column; justify-content: flex-end; }
+    .grid-2col label { margin-top: 0; margin-bottom: 2px; font-size: 10px; line-height: 1.2; }
     /* Desktop sidebar collapse: hamburger toggles #app.panel-collapsed.
        ONE column (not "0 1fr"): with #panel display:none the only remaining
        in-flow child is #map, which would auto-place into the 0-width first
@@ -1003,32 +1012,33 @@
         <button type="button" class="secondary" id="vec-clear" data-i18n="net.clear" style="margin-top: 4px;">Clear network</button>
         <label style="display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 11px; color: var(--text);">
           <input type="checkbox" id="vec-graph-mode" />
-          <span data-i18n="net.graph_mode">Compute on network graph (follow vectors)</span>
+          <span data-i18n="net.graph_mode">Use road graph instead of rasterized</span>
         </label>
         <label style="display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 11px; color: var(--text);">
           <input type="checkbox" id="net-interp" checked />
-          <span data-i18n="net.interp">Interpolate across non-network cells</span>
+          <span data-i18n="net.interp">Interpolate energy field</span>
         </label>
         <!-- Network numeric params (line width / snap / junctions / render width /
-             IDW max distance / smoothing) as a 2-col label|input table. Network
-             layer visibility + opacity live in the on-map layer-control panel. -->
-        <table class="kv-table" role="presentation">
-          <tr><td class="kv-key"><label for="vec-width" data-i18n="net.line_width">line width (cells)</label></td>
-              <td class="kv-val"><input type="number" id="vec-width" value="1" min="1" max="10" step="1" /></td></tr>
-          <tr><td class="kv-key"><label for="vec-snap" data-i18n="net.snap_radius">snap radius (cells)</label></td>
-              <td class="kv-val"><input type="number" id="vec-snap" value="10" min="0" max="200" step="1" /></td></tr>
-          <tr><td class="kv-key"><label for="vec-junction-mode" data-i18n="net.junctions">junctions</label></td>
-              <td class="kv-val"><select id="vec-junction-mode">
-                <option value="crossings" data-i18n="net.junctions_crossings">also at crossings</option>
-                <option value="shared" data-i18n="net.junctions_shared">only shared endpoints</option>
-              </select></td></tr>
-          <tr><td class="kv-key"><label for="vec-render-width" data-i18n="net.render_width">line width (m)</label></td>
-              <td class="kv-val"><input type="number" id="vec-render-width" value="4" min="0.5" max="100" step="0.5" /></td></tr>
-          <tr><td class="kv-key"><label for="net-interp-max-dist" data-i18n="net.max_distance">max distance (cells)</label></td>
-              <td class="kv-val"><input type="number" id="net-interp-max-dist" value="50" min="1" max="500" step="1" /></td></tr>
-          <tr><td class="kv-key"><label for="net-interp-smoothing" data-i18n="net.smoothing">smoothing iters</label></td>
-              <td class="kv-val"><input type="number" id="net-interp-smoothing" value="0" min="0" max="20" step="1" /></td></tr>
-        </table>
+             IDW max distance / smoothing) as a 2×3 stacked label-over-input
+             grid. Network layer visibility + opacity live in the on-map
+             layer-control panel. -->
+        <div class="grid-2col">
+          <div><label for="vec-width" data-i18n="net.line_width">line width (cells)</label>
+               <input type="number" id="vec-width" value="1" min="1" max="10" step="1" /></div>
+          <div><label for="vec-snap" data-i18n="net.snap_radius">snap radius (cells)</label>
+               <input type="number" id="vec-snap" value="10" min="0" max="200" step="1" /></div>
+          <div><label for="vec-junction-mode" data-i18n="net.junctions">junctions</label>
+               <select id="vec-junction-mode">
+                 <option value="crossings" data-i18n="net.junctions_crossings">also at crossings</option>
+                 <option value="shared" data-i18n="net.junctions_shared">only shared endpoints</option>
+               </select></div>
+          <div><label for="vec-render-width" data-i18n="net.render_width">line width (m)</label>
+               <input type="number" id="vec-render-width" value="4" min="0.5" max="100" step="0.5" /></div>
+          <div><label for="net-interp-max-dist" data-i18n="net.max_distance">max distance (cells)</label>
+               <input type="number" id="net-interp-max-dist" value="50" min="1" max="500" step="1" /></div>
+          <div><label for="net-interp-smoothing" data-i18n="net.smoothing">smoothing iters</label>
+               <input type="number" id="net-interp-smoothing" value="0" min="0" max="20" step="1" /></div>
+        </div>
         <div class="meta" id="vec-meta" data-i18n="net.no_network">No network loaded.</div>
       </details>
 
@@ -1112,11 +1122,9 @@
 
       <details class="group" id="params-group">
         <summary data-i18n="group.parameters">2A. Parâmetros</summary>
+        <!-- v68: o checkbox "Calcular contagem de passagens" foi removido —
+             a contagem agora é SEMPRE calculada (equivale a sempre marcado). -->
         <label style="display: flex; align-items: center; gap: 6px;">
-          <input type="checkbox" id="want-passes" />
-          <span data-i18n="param.want_passes">Compute passes count (route density)</span>
-        </label>
-        <label style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
           <input type="checkbox" id="want-topn" />
           <span data-i18n="param.want_topn">Compute top-N routes</span>
         </label>
@@ -1132,16 +1140,19 @@
           <input type="checkbox" id="string-pull" />
           <span data-i18n="param.string_pull" data-i18n-title="param.string_pull.title">Suavizar rotas exibidas (string pulling)</span>
         </label>
-        <!-- Mode + cost coefficients + budget as a 2-col label|input table. The
-             "applies to" row shows only in round-trip mode — toggled via
-             #e-max-mode-row's display, which a table row handles natively. -->
-        <table class="kv-table" role="presentation">
-          <tr><td class="kv-key"><label for="mode" data-i18n="param.mode">Mode</label></td>
-              <td class="kv-val"><select id="mode">
-                <option value="from"  data-i18n="mode.from">From source</option>
-                <option value="to"    data-i18n="mode.to">To source point</option>
-                <option value="round" data-i18n="mode.round">Round trip</option>
-              </select></td></tr>
+        <!-- Mode + cost coefficients + budget as a 2-col stacked
+             label-over-input grid (v68 — tighter than the old one-field-
+             per-row table). The "applies to" cell shows only in round-trip
+             mode — toggled via #e-max-mode-row's display, same as the old
+             table row. The derived read-only coefficients stay in a small
+             kv-table below the grid. -->
+        <div class="grid-2col">
+          <div><label for="mode" data-i18n="param.mode">Mode</label>
+               <select id="mode">
+                 <option value="from"  data-i18n="mode.from">From source</option>
+                 <option value="to"    data-i18n="mode.to">To source point</option>
+                 <option value="round" data-i18n="mode.round">Round trip</option>
+               </select></div>
           <!-- Move directions (grid neighborhood). 8 = the classic engine
                (the fast choice and the Rust-parity anchor; the backend also
                serves nDirs ≠ 8 since 0.2.0, version-gated). Richer ladders
@@ -1151,40 +1162,43 @@
                §3.2(d)): the med|Δ%| optimum on the local survey, 0.20 pp from
                FABDEM's n = 32 optimum; 8 stays the fast choice and gains
                beyond 32 are marginal against ≥ 2× runtime per rung. -->
-          <tr><td class="kv-key"><label for="n-dirs" data-i18n="param.ndirs">Direções de movimento</label></td>
-              <td class="kv-val"><select id="n-dirs" data-i18n-title="param.ndirs.title">
-                <option value="4">4</option>
-                <option value="8">8</option>
-                <option value="16" selected>16</option>
-                <option value="32">32</option>
-                <option value="64">64</option>
-                <option value="128">128</option>
-              </select></td></tr>
-          <tr><td class="kv-key"><label for="mass" data-i18n="param.mass">Mass (kg)</label></td>
-              <td class="kv-val"><input type="number" id="mass" value="75" step="1" min="1" /></td></tr>
-          <tr><td class="kv-key"><label for="crr" data-i18n="param.crr">Rolling resistance (Crr)</label></td>
-              <td class="kv-val"><input type="number" id="crr" value="0.008" step="0.001" min="0" /></td></tr>
-          <tr><td class="kv-key"><label for="cda" data-i18n="param.cda">Drag area (CdA, m²)</label></td>
-              <td class="kv-val"><input type="number" id="cda" value="0.45" step="0.05" min="0" /></td></tr>
-          <tr><td class="kv-key"><label for="rho" data-i18n="param.rho">Air density (ρ, kg/m³)</label></td>
-              <td class="kv-val"><input type="number" id="rho" value="1.1" step="0.025" min="0" /></td></tr>
-          <tr><td class="kv-key"><label for="keff" data-i18n="param.keff">Drivetrain efficiency</label></td>
-              <td class="kv-val"><input type="number" id="keff" value="0.97" step="0.01" min="0.1" max="1" /></td></tr>
-          <tr><td class="kv-key"><label for="pflat" data-i18n="param.pflat">Power on the flat (W)</label></td>
-              <td class="kv-val"><input type="number" id="pflat" value="80" step="5" min="1" /></td></tr>
-          <tr><td class="kv-key"><label for="climb-thr" data-i18n="param.climbthr">Climb threshold (%)</label></td>
-              <td class="kv-val"><input type="number" id="climb-thr" value="2" step="0.5" min="0" /></td></tr>
-          <tr><td class="kv-key"><label for="ksmooth" data-i18n="param.ksmooth">Smoothing k_s</label></td>
-              <td class="kv-val"><input type="number" id="ksmooth" value="1" step="0.01" min="0" max="1" /></td></tr>
-          <tr><td class="kv-key"><label for="deadband" data-i18n="param.deadband">Elev. deadband (m)</label></td>
-              <td class="kv-val"><input type="number" id="deadband" value="2" step="0.5" min="0" /></td></tr>
-          <tr><td class="kv-key"><label for="e-max" data-i18n="param.budget">Energy budget (kJ)</label></td>
-              <td class="kv-val"><input type="number" id="e-max" value="0" step="any" data-i18n-title="param.budget.title" title="≤0 = ∞ (sem orçamento)" /></td></tr>
-          <tr id="e-max-mode-row" style="display: none;"><td class="kv-key"><label for="e-max-mode" data-i18n="param.budget_mode">Budget applies to</label></td>
-              <td class="kv-val"><select id="e-max-mode">
-                <option value="leg"   data-i18n="budget.leg">each leg (out OR back)</option>
-                <option value="total" data-i18n="budget.total">round trip (total)</option>
-              </select></td></tr>
+          <div><label for="n-dirs" data-i18n="param.ndirs">Direções de movimento</label>
+               <select id="n-dirs" data-i18n-title="param.ndirs.title">
+                 <option value="4">4</option>
+                 <option value="8">8</option>
+                 <option value="16" selected>16</option>
+                 <option value="32">32</option>
+                 <option value="64">64</option>
+                 <option value="128">128</option>
+               </select></div>
+          <div><label for="mass" data-i18n="param.mass">Mass (kg)</label>
+               <input type="number" id="mass" value="75" step="1" min="1" /></div>
+          <div><label for="crr" data-i18n="param.crr">Rolling resistance (Crr)</label>
+               <input type="number" id="crr" value="0.008" step="0.001" min="0" /></div>
+          <div><label for="cda" data-i18n="param.cda">Drag area (CdA, m²)</label>
+               <input type="number" id="cda" value="0.45" step="0.05" min="0" /></div>
+          <div><label for="rho" data-i18n="param.rho">Air density (ρ, kg/m³)</label>
+               <input type="number" id="rho" value="1.1" step="0.025" min="0" /></div>
+          <div><label for="keff" data-i18n="param.keff">Drivetrain efficiency</label>
+               <input type="number" id="keff" value="0.97" step="0.01" min="0.1" max="1" /></div>
+          <div><label for="pflat" data-i18n="param.pflat">Power on the flat (W)</label>
+               <input type="number" id="pflat" value="80" step="5" min="1" /></div>
+          <div><label for="climb-thr" data-i18n="param.climbthr">Climb threshold (%)</label>
+               <input type="number" id="climb-thr" value="2" step="0.5" min="0" /></div>
+          <div><label for="ksmooth" data-i18n="param.ksmooth">Smoothing k_s</label>
+               <input type="number" id="ksmooth" value="1" step="0.01" min="0" max="1" /></div>
+          <div><label for="deadband" data-i18n="param.deadband">Elev. deadband (m)</label>
+               <input type="number" id="deadband" value="2" step="0.5" min="0" /></div>
+          <div><label for="e-max" data-i18n="param.budget">Energy budget (kJ)</label>
+               <input type="number" id="e-max" value="0" step="any" data-i18n-title="param.budget.title" title="≤0 = ∞ (sem orçamento)" /></div>
+          <div id="e-max-mode-row" style="display: none;">
+               <label for="e-max-mode" data-i18n="param.budget_mode">Budget applies to</label>
+               <select id="e-max-mode">
+                 <option value="leg"   data-i18n="budget.leg">each leg (out OR back)</option>
+                 <option value="total" data-i18n="budget.total">round trip (total)</option>
+               </select></div>
+        </div>
+        <table class="kv-table" role="presentation">
           <tr class="kv-readout"><td class="kv-key" data-i18n="param.alphar">α_r rolling (kJ/m)</td>
               <td class="kv-val"><span id="ro-alphar">—</span></td></tr>
           <tr class="kv-readout"><td class="kv-key" data-i18n="param.alphaa">α_a aero, flat (kJ/m)</td>
@@ -1749,6 +1763,16 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v68</strong> — 2026-08-23<br/>
+              <strong>Painéis mais enxutos.</strong> O checkbox <em>Calcular
+              contagem de passagens</em> foi removido — a contagem agora é
+              sempre calculada (igual a deixá-lo sempre marcado; bundles
+              antigos ganham passes ao recarregar). Renomes em 1B:
+              <em>Interpolar campo de energia</em> e <em>Usar grafo viário ao
+              invés de rasterizado</em>. Os parâmetros numéricos da rede (1B)
+              viraram uma grade 2×3 e os campos do 2A (Modo → orçamento)
+              foram compactados em duas colunas. Só UI — motores
+              intocados.</p>
               <p><strong>v67</strong> — 2026-08-09<br/>
               <strong>"Soma" que soma de verdade.</strong> Novo modo de mistura
               das passagens — <em>soma de dados (A+B numa paleta)</em>: na
