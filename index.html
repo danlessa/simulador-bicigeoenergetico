@@ -42,6 +42,8 @@
                          Cloudflare R2 — tiles at the root), the telhas host
                          (rmsampa XYZ tiles + the viário/water FGBs — FABDEM
                          no longer lives there), cdnjs (sql-wasm.wasm),
+                         the Photon geocoder (photon.komoot.io — the 🔍
+                         address search; exempted from the SW runtime cache),
                          and http://127.0.0.1:*/http://localhost:* for the
                          optional native backend. NOTE: a user who points
                          "Localhost URL" at a custom self-hosted backend
@@ -67,7 +69,7 @@
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
     font-src 'self' https://fonts.gstatic.com;
     img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://telhas.pedalhidrografi.co;
-    connect-src 'self' https://overpass-api.de https://storage.googleapis.com https://simujaules.pedalhidrografi.co https://orch.simujaules.pedalhidrografi.co https://simu-orchestrator-lrrinyjwxq-rj.a.run.app https://compute.simujaules.pedalhidrografi.co https://fabdem.pedalhidrografi.co https://telhas.pedalhidrografi.co https://cdnjs.cloudflare.com http://127.0.0.1:* http://localhost:*;
+    connect-src 'self' https://overpass-api.de https://storage.googleapis.com https://simujaules.pedalhidrografi.co https://orch.simujaules.pedalhidrografi.co https://simu-orchestrator-lrrinyjwxq-rj.a.run.app https://compute.simujaules.pedalhidrografi.co https://fabdem.pedalhidrografi.co https://telhas.pedalhidrografi.co https://cdnjs.cloudflare.com https://photon.komoot.io http://127.0.0.1:* http://localhost:*;
     worker-src 'self';
     child-src 'self';
     object-src 'none';
@@ -310,6 +312,61 @@
        Safari/iOS sometimes routes the click to the inner <circle> or
        <line> instead of bubbling up to the <button>. */
     .locate-button svg, .locate-button svg * { display: block; pointer-events: none; }
+
+    /* Busca de endereços (🔍, mesma implementação da amora, reduzida a
+       "voar até o lugar"). O botão nasce escondido no <body> e é estacionado
+       via JS na coluna de controles top-left do Leaflet, abaixo do zoom —
+       display:flex só DENTRO do container do Leaflet, então um JS quebrado
+       nunca deixa um botão órfão empurrando o layout. Branco de propósito:
+       ele integra a coluna de controles do mapa (zoom +/−), não a pilha de
+       botões escuros do app no canto direito. */
+    .geo-search-btn { display: none; }
+    .leaflet-control-container .geo-search-btn {
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      background: #fff; color: #333;
+      font-size: 15px; cursor: pointer; padding: 0; border: none;
+    }
+    .leaflet-control-container .geo-search-btn:hover { background: #f4f4f4; }
+    .leaflet-control-container .geo-search-btn[aria-pressed="true"] { background: #d8ecff; }
+    /* Painel de resultados: fixed, ancorado ao botão por
+       positionGeoSearchPanel() (os botões do app já são fixed — casa com o
+       padrão). Tema escuro do app. */
+    .geo-search-panel {
+      position: fixed;
+      z-index: 960; /* acima dos botões flutuantes (950), abaixo da ajuda (1000) */
+      width: 320px;
+      max-width: calc(100vw - 16px);
+      padding: 6px;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      font-size: 12px;
+    }
+    .geo-search-panel[hidden] { display: none; }
+    .geo-search-panel input[type="search"] {
+      width: 100%; box-sizing: border-box; padding: 5px 8px;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 4px;
+      font-size: 13px; font-family: inherit;
+    }
+    #geo-search-results {
+      list-style: none; margin: 4px 0 0; padding: 0;
+      max-height: 40vh; overflow-y: auto;
+    }
+    #geo-search-results li {
+      display: flex; flex-direction: column; gap: 1px;
+      padding: 5px 8px; border-radius: 4px; cursor: pointer;
+    }
+    #geo-search-results li:hover,
+    #geo-search-results li.is-active { background: rgba(76, 201, 240, 0.18); }
+    .geo-search-label { font-weight: 600; }
+    .geo-search-detail { color: var(--muted); font-size: 11px; }
+    .geo-search-status { margin: 6px 2px 2px; color: var(--muted); }
+    .geo-search-attrib { margin: 6px 2px 0; font-size: 10px; color: var(--muted); }
+    .geo-search-attrib a { color: inherit; }
 
     @media (max-width: 860px) {
       /* Single-column grid on mobile. CRITICAL: position:fixed removes
@@ -881,6 +938,23 @@
       <path d="M2 14 10 18 18 14"/>
     </svg>
   </button>
+
+  <!-- Busca de endereços (geocoding via Photon — mesma implementação da
+       amora, reduzida). O botão é estacionado via JS na coluna de controles
+       top-left do Leaflet, abaixo do zoom; escolher um resultado APENAS
+       centraliza o mapa no lugar (flyTo) — sem pino, sem estado. -->
+  <button id="geo-search-btn" type="button" class="geo-search-btn leaflet-bar leaflet-control"
+          data-i18n-title="geosearch.title" title="Buscar endereço ou lugar"
+          data-i18n-aria="geosearch.title" aria-pressed="false">🔍</button>
+  <div id="geo-search-panel" class="geo-search-panel" hidden>
+    <input type="search" id="geo-search-input" autocomplete="off" enterkeyhint="search"
+           data-i18n-placeholder="geosearch.placeholder" placeholder="Buscar endereço ou lugar…"
+           data-i18n-aria="geosearch.title" aria-label="Buscar endereço ou lugar" />
+    <ul id="geo-search-results" role="listbox"
+        data-i18n-aria="geosearch.results" aria-label="Resultados da busca"></ul>
+    <p id="geo-search-status" class="geo-search-status" hidden></p>
+    <p class="geo-search-attrib" data-i18n-html="geosearch.attrib"></p>
+  </div>
 
   <div id="app">
     <aside id="panel">
@@ -1766,6 +1840,14 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v70</strong> — 2026-08-24<br/>
+              <strong>Busca de endereços (🔍).</strong> Botão de busca na
+              coluna de controles do mapa, abaixo do zoom — typeahead via
+              Photon (komoot), com viés pro que está na tela e navegação por
+              ↑/↓/Enter/Esc. Escolher um resultado APENAS centraliza o mapa
+              no lugar — sem pino, sem estado (versão reduzida da busca da
+              amora). CSP e service worker ajustados pro novo host
+              (<code>photon.komoot.io</code>, isento do runtime-cache).</p>
               <p><strong>v69</strong> — 2026-08-24<br/>
               <strong>FABDEM mudou de casa.</strong> Os tiles FABDEM agora vêm
               de <code>fabdem.pedalhidrografi.co</code> (Cloudflare R2, na raiz

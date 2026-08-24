@@ -9,6 +9,18 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v70 — 2026-08-24
+
+**Busca de endereços (🔍).** Botão de busca estacionado na coluna de
+controles do mapa, abaixo do zoom — typeahead via
+[Photon](https://photon.komoot.io/) (komoot), com viés pro que está na tela,
+navegação por ↑/↓/Enter/Esc e atribuição OpenStreetMap. Mesma implementação
+da amora, **reduzida de propósito**: escolher um resultado APENAS voa até o
+lugar (`flyTo`) — sem pino, sem waypoint, sem estado. Infra: o CSP
+(`connect-src`) ganha `photon.komoot.io` e o service worker isenta esse host
+do runtime-cache (o cache-first congelaria os resultados de cada consulta).
+O `applyTranslations()` ganhou suporte a `data-i18n-placeholder`.
+
 ## v69 — 2026-08-24
 
 **FABDEM mudou de casa.** Os tiles FABDEM agora vêm de

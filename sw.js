@@ -615,7 +615,13 @@
 //              /fabdem/ path is retired; telhas still serves rmsampa
 //              tiles + the viário FGBs). CSP connect-src gains the new
 //              host. Same Bristol names, same COGs — no behaviour change.
-const VERSION  = "v69";
+//   v69 → v70: Address-search button (🔍) parked under the Leaflet zoom
+//              control — Photon (komoot) typeahead, ported from amora but
+//              reduced on purpose: picking a result ONLY flies the map to
+//              the place (no pin, no state). CSP connect-src gains
+//              photon.komoot.io; this SW exempts that host from the
+//              runtime cache (cache-first would freeze query results).
+const VERSION  = "v70";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 
@@ -745,6 +751,12 @@ self.addEventListener("fetch", (event) => {
   // network/HTTP cache. Returning without calling respondWith() lets the
   // browser handle the request normally.
   if (/\.(tiff?|gpkg)$/i.test(url.pathname)) return;
+
+  // Skip the Photon geocoder (the 🔍 address search) — handle()'s cache-first
+  // would freeze each query's results forever and bloat RUNTIME with one
+  // entry per keystroke. Straight to the network; offline search is useless
+  // anyway.
+  if (url.hostname === "photon.komoot.io") return;
 
   // For top-level navigation requests, try the network first so deploys
   // propagate quickly; fall back to the cached shell for offline launch
