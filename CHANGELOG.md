@@ -9,6 +9,17 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v71 — 2026-08-24
+
+**Pulls FGB com o mesmo teto do FABDEM.** Os três pulls de FlatGeobuf
+(viário 1B, água 1C, pontes 1D) agora compartilham UM teto de janela,
+**derivado das constantes do loader FABDEM** (50 MB ÷ 4 B/célula × (1″)²
+≈ 1,01°² ≈ ~100×110 km em SP) — qualquer janela que o "Carregar FABDEM"
+aceita, os pulls FGB aceitam também, e mudar o cap do FABDEM move o dos
+FGBs junto. Antes eram dois tetos à mão que já tinham divergido: 0,25°²
+pro viário/pontes (4× mais restritivo que agora) e 1,0°² pra água. A
+mensagem de recusa agora diz o teto ("~1°×1°, o mesmo do FABDEM").
+
 ## v70 — 2026-08-24
 
 **Busca de endereços (🔍).** Botão de busca estacionado na coluna de

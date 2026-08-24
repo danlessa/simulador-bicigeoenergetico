@@ -621,7 +621,12 @@
 //              the place (no pin, no state). CSP connect-src gains
 //              photon.komoot.io; this SW exempts that host from the
 //              runtime cache (cache-first would freeze query results).
-const VERSION  = "v70";
+//   v70 → v71: FGB pull window caps aligned with FABDEM's: one shared cap
+//              DERIVED from the FABDEM loader's constants (50 MB ÷ 4 B/cell
+//              × (1″)² ≈ 1.01°² — any window FABDEM accepts, the viário/
+//              água/pontes FGB pulls accept too). Was 0.25°² for viário/
+//              bridges and a hand-set 1.0°² for water.
+const VERSION  = "v71";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

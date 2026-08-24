@@ -199,7 +199,7 @@ const STRINGS = {
   "status.fgb_progress": { pt: "FGB: {0} vias lidas…", en: "FGB: {0} ways read…" },
   "status.fgb_no_ways":  { pt: "Nenhuma via do FGB na janela.", en: "No FGB ways in the view." },
   "status.fgb_failed":   { pt: "Consulta ao FGB falhou: {0}", en: "FGB query failed: {0}" },
-  "status.fgb_too_big":  { pt: "Janela grande demais pro FGB (~{0}×{1} km) — aproxime o zoom.", en: "View too large for the FGB pull (~{0}×{1} km) — zoom in." },
+  "status.fgb_too_big":  { pt: "Janela grande demais pro FGB (~{0}×{1} km; teto ~1°×1°, o mesmo do FABDEM) — aproxime o zoom.", en: "View too large for the FGB pull (~{0}×{1} km; cap ~1°×1°, same as FABDEM) — zoom in." },
   "imp.fgb":             { pt: "Puxar água do FGB (América do Sul · nuvem)", en: "Pull water from FGB (South America · cloud)" },
   "imp.fgb.title":       { pt: "As mesmas áreas d'água (natural=water / reservoir / riverbank) e rios (waterway=river) do pull do OSM, servidos do FlatGeobuf do projeto via HTTP Range — sem Overpass. SEM litoral: o mar não é preenchido (em DEM costeiro use o pull do OSM); rios em túnel não são filtrados (o FGB não traz a tag tunnel).", en: "The same water areas (natural=water / reservoir / riverbank) and rivers (waterway=river) as the OSM pull, served from the project's FlatGeobuf via HTTP Range — no Overpass. NO coastline: the open sea is not filled (use the OSM pull on coastal DEMs); tunnelled rivers are not filtered out (the FGB carries no tunnel tag)." },
   "bridge.fgb":          { pt: "Puxar do FGB (América do Sul · nuvem)", en: "Pull from FGB (South America · cloud)" },
@@ -4203,8 +4203,14 @@ async function loadOsmNetwork() {
 const VIARIO_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-viario.fgb";
 const WATER_AREAS_FGB_URL  = "https://telhas.pedalhidrografi.co/viario/south-america-water-areas.fgb";
 const WATER_RIVERS_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-water-rivers.fgb";
-const FGB_PULL_MAX_DEG2 = 0.25;        // ~55×50 km em SP — acima disso, aproxime o zoom
-const FGB_WATER_MAX_DEG2 = 1.0;        // água é bem mais esparsa que viário — teto 4× maior
+// Teto de janela dos pulls FGB = o MESMO teto do FABDEM (v71): a área em
+// graus² que o cap de 50 MB do loader FABDEM permite (bytes ÷ 4 células ×
+// (1″)² por célula ≈ 1,01°², ~100×110 km em SP). Derivado das constantes do
+// FABDEM de propósito — mudar o cap de lá move este junto, e qualquer janela
+// que o FABDEM aceita os pulls de viário/água/pontes aceitam também (um único
+// "aproxime o zoom" pra todo o fluxo). Antes: viário/pontes 0,25°² e água
+// 1,0°², dois tetos à mão que já tinham divergido.
+const FGB_PULL_MAX_DEG2 = (FABDEM_MAX_BYTES / 4) * FABDEM_ARCSEC * FABDEM_ARCSEC;
 const FGB_PULL_TIMEOUT_MS = 120_000;
 
 // Stream de um FGB por bbox com timeout — a fetch órfã morre sozinha quando o
@@ -4245,7 +4251,8 @@ async function loadFgbNetwork() {
   }
   // Soft cap: an accidental continental-zoom pull would stream a huge share
   // of the file. Overpass self-limits via its server timeout; here we refuse
-  // politely with the window size in km.
+  // politely with the window size in km. The cap is the FABDEM window cap
+  // (derived from its constants) — any window FABDEM accepts, this accepts.
   if ((east - west) * (north - south) > FGB_PULL_MAX_DEG2) {
     const kmX = (east - west) * 111.32 * Math.cos(((south + north) / 2) * Math.PI / 180);
     const kmY = (north - south) * 111.32;
@@ -5353,7 +5360,7 @@ async function loadFgbWater() {
   const { originX, originY, H, W, dx, dy } = state.dem;
   // Full DEM extent — a mask should cover the whole grid (same as the OSM pull).
   const south = originY - H * dy, north = originY, west = originX, east = originX + W * dx;
-  if ((east - west) * (north - south) > FGB_WATER_MAX_DEG2) {
+  if ((east - west) * (north - south) > FGB_PULL_MAX_DEG2) {
     const kmX = (east - west) * 111.32 * Math.cos(((south + north) / 2) * Math.PI / 180);
     const kmY = (north - south) * 111.32;
     status.innerHTML = `<span style="color:#ff6b6b">${t("status.fgb_too_big", kmX.toFixed(0), kmY.toFixed(0))}</span>`;

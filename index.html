@@ -1840,6 +1840,13 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v71</strong> — 2026-08-24<br/>
+              <strong>Pulls FGB com o mesmo teto do FABDEM.</strong> Os três
+              pulls de FlatGeobuf (viário 1B, água 1C, pontes 1D) agora
+              compartilham um único teto de janela, derivado do cap de 50 MB
+              do loader FABDEM (≈ 1°×1°, ~100×110 km em SP) — qualquer janela
+              que o "Carregar FABDEM" aceita, os pulls FGB aceitam também. O
+              viário/pontes usava um teto 4× mais restritivo (0,25°²).</p>
               <p><strong>v70</strong> — 2026-08-24<br/>
               <strong>Busca de endereços (🔍).</strong> Botão de busca na
               coluna de controles do mapa, abaixo do zoom — typeahead via
