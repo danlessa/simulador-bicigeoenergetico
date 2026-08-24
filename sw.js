@@ -626,7 +626,11 @@
 //              × (1″)² ≈ 1.01°² — any window FABDEM accepts, the viário/
 //              água/pontes FGB pulls accept too). Was 0.25°² for viário/
 //              bridges and a hand-set 1.0°² for water.
-const VERSION  = "v71";
+//   v71 → v72: FABDEM viewport cap raised ~1°² (50 MB) → 10°²
+//              (FABDEM_MAX_DEG2; ≈ 494 MiB of Float32, ~129.6 M cells —
+//              at the app's honest RAM ceiling). The FGB pull caps derive
+//              from it, so viário/água/pontes windows rise to 10°² too.
+const VERSION  = "v72";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

@@ -175,7 +175,7 @@ const STRINGS = {
   "ex.tag.aguapreta":    { pt: "~2 MB · imediato",      en: "~2 MB · instant" },
   "ex.tag.centro":       { pt: "~34 MB · rápido",       en: "~34 MB · fast" },
   "ex.tag.geral":        { pt: "~540 MB · lento",       en: "~540 MB · slow" },
-  "ex.tag.fabdem":       { pt: "≤ 50 MB",                en: "≤ 50 MB" },
+  "ex.tag.fabdem":       { pt: "≤ ~500 MB",              en: "≤ ~500 MB" },
   "dem.no_dem":          { pt: "Nenhum DEM carregado.", en: "No DEM loaded." },
   "dem.meta_size":       { pt: "<span class=\"v\">{0} × {1}</span> células, célula {2}", en: "<span class=\"v\">{0} × {1}</span> cells, cell {2}" },
   "dem.meta_origin":     { pt: "origem <span class=\"v\">{0}</span>", en: "origin <span class=\"v\">{0}</span>" },
@@ -199,7 +199,7 @@ const STRINGS = {
   "status.fgb_progress": { pt: "FGB: {0} vias lidas…", en: "FGB: {0} ways read…" },
   "status.fgb_no_ways":  { pt: "Nenhuma via do FGB na janela.", en: "No FGB ways in the view." },
   "status.fgb_failed":   { pt: "Consulta ao FGB falhou: {0}", en: "FGB query failed: {0}" },
-  "status.fgb_too_big":  { pt: "Janela grande demais pro FGB (~{0}×{1} km; teto ~1°×1°, o mesmo do FABDEM) — aproxime o zoom.", en: "View too large for the FGB pull (~{0}×{1} km; cap ~1°×1°, same as FABDEM) — zoom in." },
+  "status.fgb_too_big":  { pt: "Janela grande demais pro FGB (~{0}×{1} km; teto ~10°², o mesmo do FABDEM) — aproxime o zoom.", en: "View too large for the FGB pull (~{0}×{1} km; cap ~10°², same as FABDEM) — zoom in." },
   "imp.fgb":             { pt: "Puxar água do FGB (América do Sul · nuvem)", en: "Pull water from FGB (South America · cloud)" },
   "imp.fgb.title":       { pt: "As mesmas áreas d'água (natural=water / reservoir / riverbank) e rios (waterway=river) do pull do OSM, servidos do FlatGeobuf do projeto via HTTP Range — sem Overpass. SEM litoral: o mar não é preenchido (em DEM costeiro use o pull do OSM); rios em túnel não são filtrados (o FGB não traz a tag tunnel).", en: "The same water areas (natural=water / reservoir / riverbank) and rivers (waterway=river) as the OSM pull, served from the project's FlatGeobuf via HTTP Range — no Overpass. NO coastline: the open sea is not filled (use the OSM pull on coastal DEMs); tunnelled rivers are not filtered out (the FGB carries no tunnel tag)." },
   "bridge.fgb":          { pt: "Puxar do FGB (América do Sul · nuvem)", en: "Pull from FGB (South America · cloud)" },
@@ -556,7 +556,7 @@ const STRINGS = {
   "help.usage_heading":  { pt: "Como usar", en: "How to use" },
   "help.theory_heading": { pt: "O que estamos fazendo", en: "What we're doing" },
   "help.h.load_dem":     { pt: "Carregar um DEM", en: "Load a DEM" },
-  "help.p.load_dem":     { pt: "Use o seletor para abrir um GeoTIFF local, clique num exemplo hospedado, ou aperte <em>Carregar FABDEM para a janela atual</em> (puxa tiles FABDEM 1°×1° pela extensão visível, limite de 50 MB). O DEM aparece como retângulo tracejado e o mapa centra automaticamente. Com um DEM carregado, <em>Recortar à janela atual</em> extrai só a extensão visível (menos memória, cálculo mais rápido) e <em>Reduzir resolução</em> faz média de blocos N×N — num MDT de 5 m, 6× ≈ 30 m, o regime onde o modelo é mais preciso. Ambos passam pelo mesmo caminho de carga de um DEM novo (máscara, suavização, sondagem de tempo).", en: 'Use the file picker to open a local GeoTIFF, click a hosted example, or press <em>Load FABDEM for current viewport</em> (pulls FABDEM 1°×1° tiles for the visible extent, 50 MB cap). The DEM is shown as a dashed rectangle and the map auto-centres. With a DEM loaded, <em>Crop to current view</em> extracts just the visible extent (less memory, faster computes) and <em>Downsample</em> does N×N block averaging — on a 5 m DTM, 6× ≈ 30 m, the regime where the model is most accurate. Both go through the same load path as a fresh DEM (mask, smoothing, timing probe).' },
+  "help.p.load_dem":     { pt: "Use o seletor para abrir um GeoTIFF local, clique num exemplo hospedado, ou aperte <em>Carregar FABDEM para a janela atual</em> (puxa tiles FABDEM 1°×1° pela extensão visível, limite de ~500 MB ≈ 10°²). O DEM aparece como retângulo tracejado e o mapa centra automaticamente. Com um DEM carregado, <em>Recortar à janela atual</em> extrai só a extensão visível (menos memória, cálculo mais rápido) e <em>Reduzir resolução</em> faz média de blocos N×N — num MDT de 5 m, 6× ≈ 30 m, o regime onde o modelo é mais preciso. Ambos passam pelo mesmo caminho de carga de um DEM novo (máscara, suavização, sondagem de tempo).", en: 'Use the file picker to open a local GeoTIFF, click a hosted example, or press <em>Load FABDEM for current viewport</em> (pulls FABDEM 1°×1° tiles for the visible extent, ~500 MB ≈ 10°² cap). The DEM is shown as a dashed rectangle and the map auto-centres. With a DEM loaded, <em>Crop to current view</em> extracts just the visible extent (less memory, faster computes) and <em>Downsample</em> does N×N block averaging — on a 5 m DTM, 6× ≈ 30 m, the regime where the model is most accurate. Both go through the same load path as a fresh DEM (mask, smoothing, timing probe).' },
   "help.h.points":       { pt: "Marcar pontos", en: "Pick points" },
   "help.p.points":       { pt: "<strong>Modo padrão:</strong> clique no mapa para o ponto-fonte (<code>src</code>). Um segundo clique marca o destino (<code>dst</code>) — necessário para \"até a fonte\", \"ida e volta\" e \"top-N rotas\".", en: '<strong>Default mode:</strong> click the map for the source (<code>src</code>). A second click sets the destination (<code>dst</code>) — required for "to source point", "round trip", and "top-N routes".' },
   "help.p.density_pts":  { pt: "<strong>Densidade multi-referência:</strong> ative <em>Calcular densidade multi-referência</em>. Os cliques agora adicionam pontos numerados. Use \"Distribuir aleatórias\" ou ajuste <em>N referências</em>. Política FIFO: ao exceder N, o mais antigo é descartado.", en: '<strong>Multi-reference density:</strong> turn on <em>Compute multi-reference density</em>. Clicks now add numbered reference points. Use "Place random" or adjust <em>N references</em>. FIFO policy: above N, the oldest is dropped.' },
@@ -1536,8 +1536,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   // FABDEM-for-current-viewport. Sized at click time from map.getBounds()
-  // so the user can zoom around before clicking; capped at 50 MB inside
-  // loadFabdemForView().
+  // so the user can zoom around before clicking; capped at FABDEM_MAX_BYTES
+  // (10°² ≈ 494 MiB) inside loadFabdemForView().
   const fabBtn = document.getElementById("ex-fabdem-view");
   if (fabBtn) {
     fabBtn.addEventListener("click", (ev) => {
@@ -2644,8 +2644,9 @@ async function loadImpassableFromUrl(url, label) {
 // tiles and the viário FGBs) and named
 // in the original Bristol convention `{LAT}{NS}{LON}{EW}_FABDEM_V1-2.tif`
 // keyed by the SW corner. geotiff.js's fromUrl uses HTTP Range requests
-// so we never download more than the visible cells (the 50 MB cap is
-// enforced as decompressed pixel-bytes, since that's what we allocate).
+// so we never download more than the visible cells (the FABDEM_MAX_BYTES
+// cap is enforced as decompressed pixel-bytes, since that's what we
+// allocate).
 //
 // CAUTION (bicycling-energy-model journal Entry 19): FABDEM is NOT adequate
 // for energy work on flat/urban terrain. Its per-pixel noise inflates h₊ by
@@ -2658,7 +2659,13 @@ async function loadImpassableFromUrl(url, label) {
 const FABDEM_BASE_URL = "https://fabdem.pedalhidrografi.co/";
 const FABDEM_TILE_DEG = 1;          // 1° per tile, keyed by SW corner
 const FABDEM_ARCSEC = 1 / 3600;     // ~30 m at the equator
-const FABDEM_MAX_BYTES = 50 * 1024 * 1024;
+// Teto da janela em graus² (v72: era 50 MB ≈ 1°²; agora 10°² a pedido —
+// ~129,6 M células ≈ 494 MiB de Float32, na casa do teto honesto de RAM do
+// app: um DEM de 135 M células roda a densidade com 1 worker em 16 GB).
+// FGB_PULL_MAX_DEG2 deriva de FABDEM_MAX_BYTES, então os pulls FGB
+// (viário/água/pontes) sobem pra 10°² junto.
+const FABDEM_MAX_DEG2 = 10;
+const FABDEM_MAX_BYTES = (FABDEM_MAX_DEG2 / (FABDEM_ARCSEC * FABDEM_ARCSEC)) * 4;
 
 function fabdemTileName(lat, lon) {
   // Naming convention used by this deploy: hemisphere prefix BEFORE digits,
@@ -2741,13 +2748,13 @@ async function loadFabdemForView() {
   const outW = Math.round((outEast  - outWest)  * 3600);
   const outH = Math.round((outNorth - outSouth) * 3600);
 
-  // Cap by allocated pixel-bytes (Float32). 50 MB / 4 = 12.5 M cells, which
-  // is roughly a 0.98° × 0.98° square at 1 arcsec — about 110 km on a side
-  // at the equator. Beyond that we ask the user to zoom in.
+  // Cap by allocated pixel-bytes (Float32) — FABDEM_MAX_DEG2 (10°²) worth of
+  // 1-arcsec cells, ~129.6 M cells ≈ 494 MiB. Beyond that we ask the user to
+  // zoom in.
   const estBytes = outW * outH * 4;
   if (estBytes > FABDEM_MAX_BYTES) {
     status.innerHTML =
-      `<span style="color:#ff6b6b">${t("status.fabdem_too_large", (estBytes / 1024 / 1024).toFixed(0), outW, outH, FABDEM_MAX_BYTES / 1024 / 1024)}</span>`;
+      `<span style="color:#ff6b6b">${t("status.fabdem_too_large", (estBytes / 1024 / 1024).toFixed(0), outW, outH, Math.round(FABDEM_MAX_BYTES / 1024 / 1024))}</span>`;
     return;
   }
 
@@ -2838,7 +2845,8 @@ async function loadFabdemForView() {
       // image.readRasters({bbox}) does NOT exist on GeoTIFFImage — only
       // the top-level tiff.readRasters supports bbox. Passing it to the
       // image-level call silently falls back to "read full image", which
-      // would blow the 50 MB cap AND scramble the mosaic placement below.
+      // would blow the FABDEM_MAX_BYTES cap AND scramble the mosaic
+      // placement below.
       // We compute the pixel window ourselves from the source's origin
       // and resolution so geotiff.js issues Range requests for just the
       // strips overlapping the viewport.
@@ -4204,8 +4212,8 @@ const VIARIO_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-v
 const WATER_AREAS_FGB_URL  = "https://telhas.pedalhidrografi.co/viario/south-america-water-areas.fgb";
 const WATER_RIVERS_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-water-rivers.fgb";
 // Teto de janela dos pulls FGB = o MESMO teto do FABDEM (v71): a área em
-// graus² que o cap de 50 MB do loader FABDEM permite (bytes ÷ 4 células ×
-// (1″)² por célula ≈ 1,01°², ~100×110 km em SP). Derivado das constantes do
+// graus² que o cap do loader FABDEM permite (bytes ÷ 4 células ×
+// (1″)² por célula — hoje 10°², via FABDEM_MAX_DEG2). Derivado das constantes do
 // FABDEM de propósito — mudar o cap de lá move este junto, e qualquer janela
 // que o FABDEM aceita os pulls de viário/água/pontes aceitam também (um único
 // "aproxime o zoom" pra todo o fluxo). Antes: viário/pontes 0,25°² e água

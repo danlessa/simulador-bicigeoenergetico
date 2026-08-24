@@ -9,6 +9,16 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v72 — 2026-08-24
+
+**Teto FABDEM 10× maior.** O limite da janela do "Carregar FABDEM" subiu de
+50 MB (≈ 1°²) para **10°²** (`FABDEM_MAX_DEG2`; ≈ 494 MiB de Float32,
+~129,6 M células — na casa do teto honesto de RAM do app: um DEM de 135 M
+células roda a densidade com 1 worker em 16 GB, use com máquina folgada).
+Como os tetos dos pulls FGB derivam do teto FABDEM (v71), viário, água e
+pontes sobem pra 10°² junto. Botão, ajuda e mensagens atualizados
+(≤ ~500 MB / teto ~10°²).
+
 ## v71 — 2026-08-24
 
 **Pulls FGB com o mesmo teto do FABDEM.** Os três pulls de FlatGeobuf
