@@ -38,7 +38,10 @@
                          bucket, the Cloud orchestrator (both the orch.simujaules
                          alias and the stable *.run.app service URL — the alias
                          doesn't exist yet) + its VM data-plane
-                         host, the FABDEM/tiles host, cdnjs (sql-wasm.wasm),
+                         host, the FABDEM host (fabdem.pedalhidrografi.co,
+                         Cloudflare R2 — tiles at the root), the telhas host
+                         (rmsampa XYZ tiles + the viário/water FGBs — FABDEM
+                         no longer lives there), cdnjs (sql-wasm.wasm),
                          and http://127.0.0.1:*/http://localhost:* for the
                          optional native backend. NOTE: a user who points
                          "Localhost URL" at a custom self-hosted backend
@@ -64,7 +67,7 @@
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com;
     font-src 'self' https://fonts.gstatic.com;
     img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://telhas.pedalhidrografi.co;
-    connect-src 'self' https://overpass-api.de https://storage.googleapis.com https://simujaules.pedalhidrografi.co https://orch.simujaules.pedalhidrografi.co https://simu-orchestrator-lrrinyjwxq-rj.a.run.app https://compute.simujaules.pedalhidrografi.co https://telhas.pedalhidrografi.co https://cdnjs.cloudflare.com http://127.0.0.1:* http://localhost:*;
+    connect-src 'self' https://overpass-api.de https://storage.googleapis.com https://simujaules.pedalhidrografi.co https://orch.simujaules.pedalhidrografi.co https://simu-orchestrator-lrrinyjwxq-rj.a.run.app https://compute.simujaules.pedalhidrografi.co https://fabdem.pedalhidrografi.co https://telhas.pedalhidrografi.co https://cdnjs.cloudflare.com http://127.0.0.1:* http://localhost:*;
     worker-src 'self';
     child-src 'self';
     object-src 'none';
@@ -1763,6 +1766,13 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v69</strong> — 2026-08-24<br/>
+              <strong>FABDEM mudou de casa.</strong> Os tiles FABDEM agora vêm
+              de <code>fabdem.pedalhidrografi.co</code> (Cloudflare R2, na raiz
+              — sem o segmento <code>/fabdem/</code> do host antigo). Mesmos
+              nomes, mesmos COGs — sem mudança de comportamento. O
+              <code>telhas</code> segue servindo os tiles rmsampa e os FGBs do
+              viário.</p>
               <p><strong>v68</strong> — 2026-08-23<br/>
               <strong>Painéis mais enxutos.</strong> O checkbox <em>Calcular
               contagem de passagens</em> foi removido — a contagem agora é

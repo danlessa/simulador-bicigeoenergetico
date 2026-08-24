@@ -610,7 +610,12 @@
 //              "Calcular sobre o grafo da rede"). The six 1B numeric params
 //              now sit in a 2×3 stacked grid, and 2A's Mode→budget fields
 //              in a two-column grid (readouts α_r/α_a/β unchanged below).
-const VERSION  = "v68";
+//   v68 → v69: FABDEM tiles now come from fabdem.pedalhidrografi.co
+//              (Cloudflare R2, tiles at the root — the old telhas
+//              /fabdem/ path is retired; telhas still serves rmsampa
+//              tiles + the viário FGBs). CSP connect-src gains the new
+//              host. Same Bristol names, same COGs — no behaviour change.
+const VERSION  = "v69";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

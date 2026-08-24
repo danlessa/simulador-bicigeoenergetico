@@ -2419,7 +2419,10 @@ async function loadImpassableFromUrl(url, label) {
 // Pulls FABDEM 1°×1° tiles that intersect the current map viewport,
 // crops each to the visible extent, and stitches them into a single
 // in-memory GeoTIFF that we hand to loadDemFromArrayBuffer. Tiles are
-// COGs hosted at https://telhas.pedalhidrografi.co/fabdem/ and named
+// COGs hosted at https://fabdem.pedalhidrografi.co/ (Cloudflare R2 —
+// tiles at the ROOT, no /fabdem/ path segment; the old gs://telhas
+// mirror is retired for FABDEM, though telhas still serves the rmsampa
+// tiles and the viário FGBs) and named
 // in the original Bristol convention `{LAT}{NS}{LON}{EW}_FABDEM_V1-2.tif`
 // keyed by the SW corner. geotiff.js's fromUrl uses HTTP Range requests
 // so we never download more than the visible cells (the 50 MB cap is
@@ -2433,7 +2436,7 @@ async function loadImpassableFromUrl(url, label) {
 // the load-bearing, validated source for São Paulo; treat FABDEM here as a
 // convenience for terrain OUTSIDE that coverage, not a substitute for it.
 
-const FABDEM_BASE_URL = "https://telhas.pedalhidrografi.co/fabdem/";
+const FABDEM_BASE_URL = "https://fabdem.pedalhidrografi.co/";
 const FABDEM_TILE_DEG = 1;          // 1° per tile, keyed by SW corner
 const FABDEM_ARCSEC = 1 / 3600;     // ~30 m at the equator
 const FABDEM_MAX_BYTES = 50 * 1024 * 1024;

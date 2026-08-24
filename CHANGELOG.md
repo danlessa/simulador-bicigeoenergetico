@@ -9,6 +9,14 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v69 — 2026-08-24
+
+**FABDEM mudou de casa.** Os tiles FABDEM agora vêm de
+`fabdem.pedalhidrografi.co` (Cloudflare R2, na raiz — sem o segmento
+`/fabdem/` do host antigo `telhas`). Mesmos nomes de Bristol, mesmos COGs,
+mesmo carregador por HTTP Range — **sem mudança de comportamento**. O
+`telhas` segue servindo os tiles rmsampa e os FGBs do viário.
+
 ## v68 — 2026-08-23
 
 **2A e 1B mais enxutos.** O checkbox **"Calcular contagem de passagens"** foi
