@@ -1840,6 +1840,14 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v73</strong> — 2026-08-25<br/>
+              <strong>Pulls FGB ~25× mais rápidos.</strong> Os FlatGeobufs
+              (viário, água, pontes) agora vêm direto do GCS em vez do proxy
+              da Cloudflare, que estrangula ranges grandes de objetos
+              não-cacheáveis (medido: 92 s vs 0,6 s no mesmo range de 20 MB;
+              um pull de 0,2°×0,2° caiu de 57 s pra 2,3 s). Áreas e rios da
+              água baixam em paralelo, e o service worker não intercepta
+              mais <code>.fgb</code>.</p>
               <p><strong>v72</strong> — 2026-08-24<br/>
               <strong>Teto FABDEM 10× maior.</strong> O limite da janela do
               "Carregar FABDEM" subiu de 50 MB (≈ 1°²) para <strong>10°²</strong>

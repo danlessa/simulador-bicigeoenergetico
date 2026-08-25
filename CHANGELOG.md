@@ -9,6 +9,24 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v73 — 2026-08-25
+
+**Pulls FGB ~25× mais rápidos.** Os três FlatGeobufs (viário 1B, água 1C,
+pontes 1D) agora são baixados **direto do GCS** (`storage.googleapis.com`)
+em vez do host `telhas.pedalhidrografi.co`: o proxy da Cloudflare não
+cacheia objetos acima de 512 MB (o viário tem 4,5 GB) e estrangula ranges
+grandes não-cacheáveis — medido: o mesmo range de 20 MB levou **92 s via
+telhas e 0,6 s direto** (~150×); um pull de viário de 0,2°×0,2° em SP caiu
+de **57 s para 2,3 s** (mesmos 21 requests, mesmos 23,6 MB). CSP e CORS já
+permitiam — o census `.fgb` sempre foi servido assim; o telhas segue
+servindo os tiles XYZ, onde a Cloudflare ajuda. Bônus: áreas e rios do pull
+d'água baixam em **paralelo** (arquivos independentes) e o service worker
+deixou de interceptar `.fgb` (cada range pagava lookup + clone de 206 à
+toa). Paralelismo por sub-janelas foi medido e **descartado**: sai ~2,5×
+mais lento que o stream único (cada fatia re-anda a R-tree e re-baixa lotes
+da fronteira; o leitor já baixa os lotes concorrentemente) — o gargalo era
+o caminho de serving, não a falta de paralelismo no cliente.
+
 ## v72 — 2026-08-24
 
 **Teto FABDEM 10× maior.** O limite da janela do "Carregar FABDEM" subiu de

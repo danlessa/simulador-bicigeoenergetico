@@ -630,7 +630,19 @@
 //              (FABDEM_MAX_DEG2; ≈ 494 MiB of Float32, ~129.6 M cells —
 //              at the app's honest RAM ceiling). The FGB pull caps derive
 //              from it, so viário/água/pontes windows rise to 10°² too.
-const VERSION  = "v72";
+//   v72 → v73: FGB pulls ~25× faster. The three FGBs are now fetched
+//              DIRECTLY from GCS (storage.googleapis.com) instead of the
+//              telhas.pedalhidrografi.co proxy: Cloudflare can't cache
+//              objects over 512 MB (the viário FGB is 4.5 GB) and throttles
+//              big uncacheable ranges — measured: the same 20 MB range took
+//              92 s via telhas vs 0.6 s direct (~150×); a 0.2°×0.2° SP
+//              viário pull dropped 57 s → 2.3 s. Water areas+rivers now
+//              download in parallel (independent files), and this SW stops
+//              intercepting .fgb (each Range paid a cache lookup + 206
+//              clone for nothing). Sub-window parallelism was measured and
+//              REJECTED (2.5× slower — the reader already fetches feature
+//              batches concurrently; the bottleneck was the serving path).
+const VERSION  = "v73";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 
@@ -755,11 +767,14 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
 
-  // Skip big data files entirely — DEM rasters and GeoPackage networks
-  // (the "Viário RMSampa" example alone is ~145 MB) go straight to the
+  // Skip big data files entirely — DEM rasters, GeoPackage networks
+  // (the "Viário RMSampa" example alone is ~145 MB) and FlatGeobufs (v73:
+  // the viário/água/pontes + census pulls issue THOUSANDS of Range requests
+  // against multi-GB .fgb files — each was paying a cache lookup + a 206
+  // body clone here, and Cache.put refuses 206s anyway) go straight to the
   // network/HTTP cache. Returning without calling respondWith() lets the
   // browser handle the request normally.
-  if (/\.(tiff?|gpkg)$/i.test(url.pathname)) return;
+  if (/\.(tiff?|gpkg|fgb)$/i.test(url.pathname)) return;
 
   // Skip the Photon geocoder (the 🔍 address search) — handle()'s cache-first
   // would freeze each query's results forever and bloat RUNTIME with one

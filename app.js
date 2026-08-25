@@ -4201,16 +4201,27 @@ async function loadOsmNetwork() {
 
 // Pull the same highway=* network from the South-America road FlatGeobuf
 // (built by amora's build-viario.py from Geofabrik OSM, hosted on gs://telhas
-// behind telhas.pedalhidrografi.co — CORS `*`). The FGB's packed Hilbert
+// — CORS `*`). The FGB's packed Hilbert
 // R-tree lets flatgeobuf.deserialize(url, rect) fetch ONLY the bytes inside
 // the view∩DEM bbox via HTTP Range requests — no Overpass dependency, no
 // server-side timeout, and bridge/tunnel/layer come as real columns (raw OSM
 // values; normalized below exactly like the Overpass pull, so the two sources
 // are interchangeable downstream). Reuses the flatgeobuf 3.36.0 the census
 // sampling already loads, and the same installNetworkFromLines tail.
-const VIARIO_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-viario.fgb";
-const WATER_AREAS_FGB_URL  = "https://telhas.pedalhidrografi.co/viario/south-america-water-areas.fgb";
-const WATER_RIVERS_FGB_URL = "https://telhas.pedalhidrografi.co/viario/south-america-water-rivers.fgb";
+//
+// SERVIDOS DIRETO DO GCS (storage.googleapis.com), NÃO do host bonito
+// telhas.pedalhidrografi.co (v73): o proxy da Cloudflare não cacheia objetos
+// acima de 512 MB (o viário tem 4,5 GB) e ESTRANGULA ranges grandes
+// não-cacheáveis — medido: o MESMO range de 20 MB levou 92 s via telhas e
+// 0,6 s direto do GCS (~150×; um pull de 0,2°×0,2° em SP caía de ~57 s pra
+// segundos). O census .fgb sempre foi servido assim; o CSP (connect-src) já
+// permite storage.googleapis.com, o CORS do bucket é `*` e Range é header
+// CORS-safelisted (sem preflight). O telhas segue servindo os tiles XYZ
+// (pequenos e cacheáveis — lá a Cloudflare ajuda). NÃO "arrumar" de volta
+// pro host bonito sem re-medir.
+const VIARIO_FGB_URL = "https://storage.googleapis.com/telhas/viario/south-america-viario.fgb";
+const WATER_AREAS_FGB_URL  = "https://storage.googleapis.com/telhas/viario/south-america-water-areas.fgb";
+const WATER_RIVERS_FGB_URL = "https://storage.googleapis.com/telhas/viario/south-america-water-rivers.fgb";
 // Teto de janela dos pulls FGB = o MESMO teto do FABDEM (v71): a área em
 // graus² que o cap do loader FABDEM permite (bytes ÷ 4 células ×
 // (1″)² por célula — hoje 10°², via FABDEM_MAX_DEG2). Derivado das constantes do
@@ -5386,17 +5397,24 @@ async function loadFgbWater() {
     const rivers = [];
     // Áreas: cada polígono (anéis externo+furos) é UM corpo — o preenchimento
     // even-odd de rebuildOsmWaterMask corta os furos por paridade.
-    await fgbStream(WATER_AREAS_FGB_URL, rect, (f) => {
-      const g = f?.geometry;
-      if (g?.type === "Polygon") bodies.push({ rings: g.coordinates.map((r) => r.map(toGrid)) });
-      else if (g?.type === "MultiPolygon") for (const poly of g.coordinates) bodies.push({ rings: poly.map((r) => r.map(toGrid)) });
-    });
+    // v73: áreas e rios são ARQUIVOS independentes — os dois streams rodam em
+    // paralelo. (Paralelismo por sub-janelas dentro de UM arquivo foi medido
+    // e descartado: cada fatia re-anda a R-tree e re-baixa lotes da fronteira,
+    // saindo 2,5× MAIS LENTO que o stream único — o leitor já baixa os lotes
+    // de features concorrentemente por conta própria.)
+    await Promise.all([
+      fgbStream(WATER_AREAS_FGB_URL, rect, (f) => {
+        const g = f?.geometry;
+        if (g?.type === "Polygon") bodies.push({ rings: g.coordinates.map((r) => r.map(toGrid)) });
+        else if (g?.type === "MultiPolygon") for (const poly of g.coordinates) bodies.push({ rings: poly.map((r) => r.map(toGrid)) });
+      }),
+      fgbStream(WATER_RIVERS_FGB_URL, rect, (f) => {
+        const g = f?.geometry;
+        if (g?.type === "LineString") rivers.push(g.coordinates.map(toGrid));
+        else if (g?.type === "MultiLineString") for (const part of g.coordinates) rivers.push(part.map(toGrid));
+      }),
+    ]);
     progressBar.style.width = "45%";
-    await fgbStream(WATER_RIVERS_FGB_URL, rect, (f) => {
-      const g = f?.geometry;
-      if (g?.type === "LineString") rivers.push(g.coordinates.map(toGrid));
-      else if (g?.type === "MultiLineString") for (const part of g.coordinates) rivers.push(part.map(toGrid));
-    });
     if (!bodies.length && !rivers.length) {
       status.textContent = t("status.water_none");
       return;
