@@ -9,6 +9,21 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v75 — 2026-08-28
+
+**Segmentos consecutivos não-sobrepostos (3C.c).** Novo knob "nº de
+segmentos" (1–10): depois de encontrar cada segmento, o worker zera a
+densidade num tubo de ±2 células ao redor dele e roda a busca de novo no que
+sobrou (pool de sementes re-sorteado por segmento — o "topo de densidade"
+muda depois de cada descasque). As células continuam transitáveis: um
+segmento posterior pode CRUZAR um anterior perpendicular (só não coleta nada
+ali), mas não pode repassar o mesmo corredor nem a pista vizinha — teste de
+regressão com dois corredores paralelos exige zero células compartilhadas e
+distância > 2 células do tubo. Cores por posto (fúcsia → violeta → índigo →
+…), estatísticas por segmento na linha de resultado e nos tooltips,
+enquadramento do mapa na união. Formato de mensagem ganha `segments`
+(campos de topo continuam espelhando o 1º segmento — compatível).
+
 ## v74 — 2026-08-27
 
 **Segmento de densidade máxima (3C.c).** Depois de um cálculo de

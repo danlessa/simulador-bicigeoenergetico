@@ -677,7 +677,17 @@
 //              test-maxseg.mjs pins quality against exact enumeration of
 //              the same penalized objective + shuttle/zigzag/round-trip
 //              regressions.
-const VERSION  = "v74";
+//   v74 → v75: Consecutive non-overlapping segments (3C.c "nº de
+//              segmentos", 1–10): after each found segment the worker zeroes
+//              its density in a ±2-cell tube and re-runs the search
+//              (seed pool re-picked) on what is left — segment k+1 can
+//              still CROSS earlier ones perpendicular (cells stay
+//              passable, reward-free) but cannot re-harvest a corridor or
+//              its adjacent lane. Ranked colours (fuchsia → violet →
+//              indigo → …), per-segment stats in the meta + tooltips,
+//              fitBounds over the union. Wire format gains `segments`
+//              (top-level fields still mirror segments[0]).
+const VERSION  = "v75";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

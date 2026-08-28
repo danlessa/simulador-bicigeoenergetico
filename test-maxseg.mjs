@@ -388,6 +388,55 @@ for (const { name, dx, dy } of [
   }
 }
 
+// ---- 5c. consecutive non-overlapping segments (nSegments peeling) ----
+// Two parallel corridors of different quality: top-1 lands on the better one;
+// with nSegments=2 the second segment must take the OTHER corridor — not the
+// adjacent lane of the first (the peeled tube covers ±2 cells) — and share no
+// cells with it. Legacy top-level fields must mirror segments[0].
+{
+  console.log("consecutive segments (peeling)");
+  const H = 40, W = 60, N = H * W, dx = 100, dy = 100;
+  const rnd = prng(31);
+  const density = new Float32Array(N);
+  for (let i = 0; i < N; i++) density[i] = 0.01 * rnd();
+  for (let c = 0; c < W; c++) density[15 * W + c] = 10 + 0.01 * rnd(); // corridor A
+  for (let c = 0; c < W; c++) density[30 * W + c] = 8 + 0.01 * rnd();  // corridor B
+  const allowed = new Uint8Array(N).fill(1);
+  const { done, error } = run({
+    kind: "maxseg", turnExp: 0.5, elongExp: 0, nSegments: 2,
+    density, allowed, H, W, dx, dy, targetLenM: 3000,
+  });
+  assert(!error && done, `worker returned a result${error ? ` (error: ${error.message})` : ""}`);
+  if (done) {
+    assert(done.segments && done.segments.length === 2, `two segments returned (${done.segments?.length})`);
+    if (done.segments?.length === 2) {
+      const [s1, s2] = done.segments;
+      assert(done.sum === s1.sum && done.path.length === s1.path.length,
+        "legacy top-level fields mirror segments[0]");
+      const rowOf = (p) => {
+        const counts = new Map();
+        for (const idx of p) { const r = (idx / W) | 0; counts.set(r, (counts.get(r) || 0) + 1); }
+        return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      };
+      assert(rowOf(s1.path) === 15, `segment 1 on the better corridor (row ${rowOf(s1.path)})`);
+      assert(rowOf(s2.path) === 30, `segment 2 on the other corridor (row ${rowOf(s2.path)})`);
+      const cells1 = new Set(s1.path);
+      let shared = 0, nearTube = 0;
+      for (const idx of s2.path) {
+        if (cells1.has(idx)) shared++;
+        const r = (idx / W) | 0, c = idx % W;
+        for (const j of s1.path) {
+          const jr = (j / W) | 0, jc = j % W;
+          if (Math.max(Math.abs(jr - r), Math.abs(jc - c)) <= 2) { nearTube++; break; }
+        }
+      }
+      assert(shared === 0, "no shared cells between segments");
+      assert(nearTube === 0, "segment 2 stays out of segment 1's peeled tube (±2 cells)");
+      assert(s2.sum > 0 && s2.lengthM >= 0.95 * 3000, "segment 2 is a full-length positive-sum path");
+    }
+  }
+}
+
 // ---- 6. app-side coarsening (MIRROR of app.js coarsenFieldForMaxseg —
 //         hand-kept-in-sync, same rule as the test-water-raster mirrors) ----
 function coarsenFieldForMaxseg(field, mask, H, W, f) {

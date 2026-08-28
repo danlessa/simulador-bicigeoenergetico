@@ -1553,10 +1553,20 @@ function maxDensitySegment(opts) {
   if (targetLenM < 4 * minCell) return { error: "too_short" };
   if (N > MAXSEG_MAX_CELLS) return { error: `grid_too_big (${N} cells)` };
 
+  // Multi-segment ("consecutive sum-maxing"): after each found segment its
+  // density is ZEROED in a MAXSEG_HALO_CELLS tube, and the search re-runs on
+  // what is left (seed pool included — it must be re-picked per segment).
+  // Cells stay PASSABLE, so a later segment may still CROSS an earlier one
+  // perpendicular (it just collects nothing there) — "non-overlapping" means
+  // no shared corridor stretches, and the tube stops segment k+1 from simply
+  // riding the adjacent lane of segment k.
+  const nSeg = Math.min(10, Math.max(1, (opts.nSegments | 0) || 1));
+
   // ---- Seed selection: top-density pool, then spacing filter ----
   // Min-heap of the MAXSEG_TOP_POOL highest-density allowed cells (one pass),
   // then greedily keep the densest seeds at least `sep` cells apart so the
-  // starts probe different corridors instead of one hot blob.
+  // starts probe different corridors instead of one hot blob. Re-run per
+  // segment (the zeroed tube changes what "top density" means).
   const heapIdx = new Int32Array(MAXSEG_TOP_POOL);
   const heapVal = new Float64Array(MAXSEG_TOP_POOL);
   let heapN = 0;
@@ -1582,31 +1592,34 @@ function maxDensitySegment(opts) {
       i = m;
     }
   };
-  for (let i = 0; i < N; i++) {
-    if (!allowed[i]) continue;
-    const v = density[i];
-    if (heapN < MAXSEG_TOP_POOL) {
-      heapIdx[heapN] = i; heapVal[heapN] = v; heapUp(heapN++);
-    } else if (v > heapVal[0]) {
-      heapIdx[0] = i; heapVal[0] = v; heapDown();
+  const pickStarts = () => {
+    heapN = 0;
+    for (let i = 0; i < N; i++) {
+      if (!allowed[i]) continue;
+      const v = density[i];
+      if (heapN < MAXSEG_TOP_POOL) {
+        heapIdx[heapN] = i; heapVal[heapN] = v; heapUp(heapN++);
+      } else if (v > heapVal[0]) {
+        heapIdx[0] = i; heapVal[0] = v; heapDown();
+      }
     }
-  }
-  if (heapN === 0) return { error: "unreachable" };
-  const pool = [];
-  for (let i = 0; i < heapN; i++) pool.push([heapVal[i], heapIdx[i]]);
-  pool.sort((a, b) => b[0] - a[0]);
-  const sep = Math.max(2, Math.round(targetLenM / minCell / 12)); // Chebyshev cells
-  const starts = [];
-  for (const [, idx] of pool) {
-    const r = (idx / W) | 0, c = idx - r * W;
-    let far = true;
-    for (const s of starts) {
-      const sr = (s / W) | 0, sc = s - sr * W;
-      if (Math.max(Math.abs(sr - r), Math.abs(sc - c)) < sep) { far = false; break; }
+    const pool = [];
+    for (let i = 0; i < heapN; i++) pool.push([heapVal[i], heapIdx[i]]);
+    pool.sort((a, b) => b[0] - a[0]);
+    const sep = Math.max(2, Math.round(targetLenM / minCell / 12)); // Chebyshev cells
+    const starts = [];
+    for (const [, idx] of pool) {
+      const r = (idx / W) | 0, c = idx - r * W;
+      let far = true;
+      for (const s of starts) {
+        const sr = (s / W) | 0, sc = s - sr * W;
+        if (Math.max(Math.abs(sr - r), Math.abs(sc - c)) < sep) { far = false; break; }
+      }
+      if (far) starts.push(idx);
+      if (starts.length >= MAXSEG_STARTS) break;
     }
-    if (far) starts.push(idx);
-    if (starts.length >= MAXSEG_STARTS) break;
-  }
+    return starts;
+  };
 
   // ---- Two-ended self-avoiding greedy growth with rollout lookahead ----
   // Turn-factor table over metric move directions (anisotropy-aware): row a =
@@ -1749,6 +1762,9 @@ function maxDensitySegment(opts) {
     return res;
   };
 
+  // One full search over the CURRENT density field. Returns the best run or
+  // null; [pBase, pBase+pScale] is this call's slice of the progress bar.
+  const findOne = (starts, pBase, pScale) => {
   const best = { Rsel: -Infinity, Rraw: 0, len: 0, rho: 0, path: null };
   for (let si = 0; si < starts.length; si++) {
     const s = starts[si];
@@ -1887,11 +1903,10 @@ function maxDensitySegment(opts) {
       for (let i = 0; i < tailArr.length; i++) path[p++] = tailArr[i];
       best.Rsel = Rsel; best.Rraw = Rraw; best.len = len; best.rho = rho; best.path = path;
     }
-    postMessage({ kind: "progress", progress: progressBase + progressScale * ((si + 1) / starts.length) });
+    postMessage({ kind: "progress", progress: pBase + pScale * ((si + 1) / starts.length) });
   }
 
-  if (!best.path || best.path.length < 2) return { error: "unreachable" };
-
+  if (!best.path || best.path.length < 2) return null;
   return {
     path: best.path,
     sum: best.Rraw,          // Σ d̄·len over the path (density · metres) — RAW,
@@ -1900,8 +1915,35 @@ function maxDensitySegment(opts) {
     lengthM: best.len,       // true metric length (exact edge sum)
     straightness: best.rho,  // chord/length ∈ (0,1] — 1 − circular variance
                              // of the step headings (1 = perfectly straight)
-    revisitFrac: 0,          // simple path by construction (kept for API shape)
   };
+  };
+
+  // ---- Segment loop: find, peel (zero the tube), repeat ----
+  const segments = [];
+  for (let g = 0; g < nSeg; g++) {
+    const starts = pickStarts();
+    if (!starts.length) break;
+    const res = findOne(starts, progressBase + progressScale * (g / nSeg), progressScale / nSeg);
+    if (!res) break;
+    // A later segment over a fully-peeled field collects nothing — stop
+    // rather than return arbitrary zero-sum lines (segment 1 keeps the old
+    // behaviour: even a zero field returns its best-effort path).
+    if (g > 0 && !(res.sum > 0)) break;
+    segments.push(res);
+    if (g < nSeg - 1) {
+      for (let i = 0; i < res.path.length; i++) {
+        const cell = res.path[i];
+        const r = (cell / W) | 0, c = cell - r * W;
+        const r0 = Math.max(0, r - MAXSEG_HALO_CELLS), r1 = Math.min(H - 1, r + MAXSEG_HALO_CELLS);
+        const c0 = Math.max(0, c - MAXSEG_HALO_CELLS), c1 = Math.min(W - 1, c + MAXSEG_HALO_CELLS);
+        for (let rr = r0; rr <= r1; rr++)
+          for (let cc = c0; cc <= c1; cc++)
+            density[rr * W + cc] = 0;
+      }
+    }
+  }
+  if (!segments.length) return { error: "unreachable" };
+  return { segments };
 }
 
 // ------- Worker message handler -------
@@ -1972,9 +2014,16 @@ self.onmessage = (ev) => {
       const res = maxDensitySegment(msg);
       if (res.error) postMessage({ kind: "error", message: res.error });
       else {
+        // Top-level fields mirror segments[0] (legacy single-segment shape).
+        const first = res.segments[0];
         postMessage(
-          { kind: "maxseg-done", path: res.path, sum: res.sum, lengthM: res.lengthM, straightness: res.straightness, revisitFrac: res.revisitFrac },
-          [res.path.buffer],
+          {
+            kind: "maxseg-done",
+            path: first.path, sum: first.sum, lengthM: first.lengthM,
+            straightness: first.straightness, revisitFrac: 0,
+            segments: res.segments,
+          },
+          res.segments.map((s) => s.path.buffer),
         );
       }
     } catch (err) {
