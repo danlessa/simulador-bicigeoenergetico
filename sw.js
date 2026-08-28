@@ -650,16 +650,25 @@
 //              two-ended self-avoiding greedy with rollout lookahead; an
 //              exact layered DP over WALKS was tried first and dropped
 //              (measured: it shuttled 5× over the hottest 4 km stretch of
-//              a 20 km target). Steps are scored with a multiplicative turn
-//              penalty (((1+cosΔθ)/2)^0.5, seed-kink coupled) — without it
-//              the raw objective rewards snaking across wide corridors
-//              (measured sinuosity 1.41 → 1.04); the penalty steers the
-//              search only, the reported sum stays the drawn line's own raw
-//              integral. Fuchsia line with dark casing + fitBounds on
-//              result; geographic DEMs only (like all routes). Display/
-//              analysis only — engines, backend parity, bundles untouched.
+//              a 20 km target). Steps are scored with multiplicative SHAPE
+//              penalties, each with a 3C.c knob (0 = off), steering the
+//              search only (the reported sum stays the drawn line's raw
+//              integral): turn smoothness (((1+cosΔθ)/2)^exp, seed-kink
+//              coupled — without it the raw objective rewards snaking
+//              across wide corridors; sinuosity 1.41 → 1.04) and
+//              straightness/anti-round-trip (other-end chord + trailing
+//              anchor + a proximity halo with SIGNED arc-length stamps that
+//              stops out-one-lane-back-the-next lobes; a hot dead-end spur
+//              went from a 23-cell out-and-back to a single 12-cell
+//              traversal). Seed selection weights reward × ρ^exp, ρ =
+//              chord/length = the circular mean resultant of the step
+//              headings (1 − circular variance), reported in the result.
+//              Fuchsia line with dark casing + fitBounds on result;
+//              geographic DEMs only (like all routes). Display/analysis
+//              only — engines, backend parity, bundles untouched.
 //              test-maxseg.mjs pins quality against exact enumeration of
-//              the same penalized objective + shuttle/zigzag regressions.
+//              the same penalized objective + shuttle/zigzag/round-trip
+//              regressions.
 const VERSION  = "v74";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;

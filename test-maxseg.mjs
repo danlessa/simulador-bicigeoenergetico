@@ -12,10 +12,15 @@
 //      spans ~the target length — the old layered walk-DP collapsed onto a
 //      4 km stretch traversed 5× here (why the walk formulation was dropped);
 //   4. a blocked wall is never crossed;
-//   5. the app-side block-mean coarsening (mirror of app.js
+//   5. the ANTI-ROUND-TRIP knobs (elongExp + elongLookbackM): a hot dead-end
+//      spur is traversed ONCE instead of out-and-back (the halo +
+//      trailing-anchor terms), and on a U-shaped corridor the straightness
+//      ρ = chord/length (1 − circular variance of the headings) rises
+//      monotonically with the knob;
+//   6. the app-side block-mean coarsening (mirror of app.js
 //      coarsenFieldForMaxseg — hand-kept-in-sync) handles masked/NaN cells
 //      and partial edge blocks;
-//   6. the too_short guard errors instead of returning garbage.
+//   7. the too_short guard errors instead of returning garbage.
 // Run: node test-maxseg.mjs
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -173,7 +178,7 @@ for (const { name, dx, dy } of [
 
   const ref = exactBest(density, allowed, H, W, dx, dy, targetLenM);
   const { done, error } = run({
-    kind: "maxseg",
+    kind: "maxseg", turnExp: 0.5, elongExp: 0,
     density: new Float32Array(density), allowed: new Uint8Array(allowed),
     H, W, dx, dy, targetLenM,
   });
@@ -205,7 +210,7 @@ for (const { name, dx, dy } of [
   for (let c = 0; c < W; c++) density[20 * W + c] = 10 + 0.01 * rnd();
   const allowed = new Uint8Array(N).fill(1);
   const targetLenM = 3000;
-  const { done, error } = run({ kind: "maxseg", density, allowed, H, W, dx, dy, targetLenM });
+  const { done, error } = run({ kind: "maxseg", turnExp: 0.5, elongExp: 0, density, allowed, H, W, dx, dy, targetLenM });
   assert(!error && done, `worker returned a result${error ? ` (error: ${error.message})` : ""}`);
   if (done) {
     let onRidge = 0;
@@ -229,7 +234,7 @@ for (const { name, dx, dy } of [
   const density = new Float32Array(N).fill(0.01);
   for (let r = 19; r <= 21; r++) for (let c = 0; c < W; c++) density[r * W + c] = 10;
   const allowed = new Uint8Array(N).fill(1);
-  const { done, error } = run({ kind: "maxseg", density, allowed, H, W, dx, dy, targetLenM: 3000 });
+  const { done, error } = run({ kind: "maxseg", turnExp: 0.5, elongExp: 0, density, allowed, H, W, dx, dy, targetLenM: 3000 });
   assert(!error && done, "worker returned a result");
   if (done) {
     const p = done.path;
@@ -270,7 +275,7 @@ for (const { name, dx, dy } of [
   for (let i = 0; i < N; i++) density[i] += 0.05 * rnd();
   const allowed = new Uint8Array(N).fill(1);
   const targetLenM = 20000;
-  const { done, error } = run({ kind: "maxseg", density, allowed, H, W, dx, dy, targetLenM });
+  const { done, error } = run({ kind: "maxseg", turnExp: 0.5, elongExp: 0, density, allowed, H, W, dx, dy, targetLenM });
   assert(!error && done, `worker returned a result${error ? ` (error: ${error.message})` : ""}`);
   if (done) {
     const audit = auditPath(done, density, allowed, H, W, dx, dy);
@@ -299,7 +304,7 @@ for (const { name, dx, dy } of [
   const density = new Float32Array(N).fill(1);
   const allowed = new Uint8Array(N).fill(1);
   for (let r = 0; r < H; r++) allowed[r * W + 10] = 0; // vertical wall
-  const { done, error } = run({ kind: "maxseg", density, allowed, H, W, dx, dy, targetLenM: 1500 });
+  const { done, error } = run({ kind: "maxseg", turnExp: 0.5, elongExp: 0, density, allowed, H, W, dx, dy, targetLenM: 1500 });
   assert(!error && done, "worker returned a result");
   if (done) {
     let crossed = false;
@@ -311,7 +316,70 @@ for (const { name, dx, dy } of [
   }
 }
 
-// ---- 5. app-side coarsening (MIRROR of app.js coarsenFieldForMaxseg —
+// ---- 5. anti-round-trip knobs (elongExp / elongLookbackM) ----
+// 5a. A hot 2-wide dead-end spur off a mild corridor: with the knobs off, the
+// search harvests the spur out-and-back (a local round-trip lobe — the
+// user-reported shape). With the local terms on, the spur is traversed ONCE
+// (12 cells = one lane) and the path exits through the background instead of
+// doubling back down the adjacent lane.
+{
+  console.log("anti-round-trip: hot dead-end spur");
+  const H = 40, W = 60, N = H * W, dx = 100, dy = 100;
+  const density = new Float32Array(N).fill(0.01);
+  for (let c = 0; c < W; c++) density[20 * W + c] = 5;
+  for (let r = 8; r < 20; r++) { density[r * W + 30] = 30; density[r * W + 31] = 30; }
+  const allowed = new Uint8Array(N).fill(1);
+  const spurCells = (done) => {
+    let n = 0;
+    for (const idx of done.path) {
+      const r = (idx / W) | 0, c = idx % W;
+      if (r < 20 && (c === 30 || c === 31)) n++;
+    }
+    return n;
+  };
+  const base = { kind: "maxseg", H, W, dx, dy, targetLenM: 5000, turnExp: 0.5 };
+  const mk = () => ({ density: new Float32Array(density), allowed: new Uint8Array(allowed) });
+  const off = run({ ...base, ...mk(), elongExp: 0, elongLookbackM: 0 }).done;
+  const on = run({ ...base, ...mk(), elongExp: 0.5, elongLookbackM: 625 }).done;
+  assert(off && spurCells(off) >= 20, `knobs OFF: out-and-back lobe present (${off && spurCells(off)} spur cells — documents the failure shape)`);
+  assert(on && spurCells(on) <= 13, `knobs ON: spur traversed once (${on && spurCells(on)} spur cells ≤ 13)`);
+  assert(on && on.straightness >= 0.65, `knobs ON: straightness ${on && on.straightness.toFixed(2)} ≥ 0.65 (off: ${off && off.straightness.toFixed(2)})`);
+  if (on) {
+    const audit = auditPath(on, density, allowed, H, W, dx, dy);
+    assert(audit.ok, "knobs ON: still a valid simple path");
+    assert(on.lengthM >= 0.95 * 5000, `knobs ON: full target length (${(on.lengthM / 1000).toFixed(1)} km)`);
+  }
+}
+// 5b. U-shaped corridor: straightness ρ rises monotonically with the knob —
+// the circular spread of the step headings shrinks as requested.
+{
+  console.log("anti-round-trip: U-shaped corridor, ρ vs knob");
+  const H = 45, W = 60, N = H * W, dx = 100, dy = 100;
+  const density = new Float32Array(N).fill(0.01);
+  for (let r = 5; r <= 35; r++) density[r * W + 10] = 10;
+  for (let c = 10; c <= 50; c++) density[35 * W + c] = 10;
+  for (let r = 35; r >= 5; r--) density[r * W + 50] = 10;
+  const allowed = new Uint8Array(N).fill(1);
+  const base = { kind: "maxseg", H, W, dx, dy, targetLenM: 9000, turnExp: 0.5 };
+  const mk = () => ({ density: new Float32Array(density), allowed: new Uint8Array(allowed) });
+  const r0 = run({ ...base, ...mk(), elongExp: 0, elongLookbackM: 0 }).done;
+  const r1 = run({ ...base, ...mk(), elongExp: 0.5, elongLookbackM: 1125 }).done;
+  const r2 = run({ ...base, ...mk(), elongExp: 2.0, elongLookbackM: 1125 }).done;
+  assert(r0 && r1 && r2, "all three knob settings returned results");
+  if (r0 && r1 && r2) {
+    assert(r0.straightness <= 0.5, `knob 0: follows the U (ρ ${r0.straightness.toFixed(2)} ≤ 0.5)`);
+    assert(r1.straightness >= r0.straightness + 0.1,
+      `knob 0.5: straighter (ρ ${r1.straightness.toFixed(2)} ≥ ${r0.straightness.toFixed(2)} + 0.1)`);
+    assert(r2.straightness >= r1.straightness,
+      `knob 2.0: straighter still (ρ ${r2.straightness.toFixed(2)} ≥ ${r1.straightness.toFixed(2)})`);
+    for (const [tag, d] of [["0", r0], ["0.5", r1], ["2.0", r2]]) {
+      const audit = auditPath(d, density, allowed, H, W, dx, dy);
+      assert(audit.ok && d.lengthM >= 0.95 * 9000, `knob ${tag}: valid simple path at full length`);
+    }
+  }
+}
+
+// ---- 6. app-side coarsening (MIRROR of app.js coarsenFieldForMaxseg —
 //         hand-kept-in-sync, same rule as the test-water-raster mirrors) ----
 function coarsenFieldForMaxseg(field, mask, H, W, f) {
   const Hc = Math.ceil(H / f), Wc = Math.ceil(W / f);

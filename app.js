@@ -456,7 +456,13 @@ const STRINGS = {
   "maxseg.need_passes":  { pt: "calcule um campo de densidade/passagens primeiro", en: "compute a density/passes field first" },
   "maxseg.too_short":    { pt: "comprimento alvo curto demais para este DEM (grade engrossada não o resolve)", en: "target length too short for this DEM (the coarsened grid can't resolve it)" },
   "maxseg.progress":     { pt: "buscando segmento… {0}%", en: "finding segment… {0}%" },
-  "maxseg.result":       { pt: "L = {0} km · densidade média {1} ({2}× a média do campo) · células de ~{3} m", en: "L = {0} km · mean density {1} ({2}× the field mean) · ~{3} m cells" },
+  "maxseg.result":       { pt: "L = {0} km · densidade média {1} ({2}× a média do campo) · retidão {4} · células de ~{3} m", en: "L = {0} km · mean density {1} ({2}× the field mean) · straightness {4} · ~{3} m cells" },
+  "maxseg.turn":         { pt: "suavidade de curvas (expoente)", en: "turn smoothness (exponent)" },
+  "maxseg.turn.title":   { pt: "Penaliza mudanças de direção passo a passo: cada passo é pontuado × ((1+cos Δθ)/2)^expoente contra a direção anterior. 0 desliga; maior = trajeto mais suave. Só guia a busca — a soma exibida é sempre a integral bruta da linha.", en: "Penalises step-by-step direction changes: each step is scored × ((1+cos Δθ)/2)^exponent against the previous direction. 0 disables; higher = smoother path. Steers the search only — the displayed sum is always the line's raw integral." },
+  "maxseg.elong":        { pt: "retidão / anti-ida-e-volta (expoente)", en: "straightness / anti-round-trip (exponent)" },
+  "maxseg.elong.title":  { pt: "Penaliza formas de ida-e-volta e incentiva segmentos alongados: cada passo é pontuado pela variação da distância às duas referências (a outra ponta do trajeto e uma âncora na janela local), e entre as sementes vence a corrida com maior recompensa × retidão^expoente (retidão = corda/comprimento = 1 − variância circular dos rumos). 0 desliga.", en: "Penalises round-trip shapes and rewards elongated segments: each step is scored by its change of distance to two references (the path's other end and a trailing anchor within the local window), and across seeds the run with the highest reward × straightness^exponent wins (straightness = chord/length = 1 − circular variance of the headings). 0 disables." },
+  "maxseg.lookback":     { pt: "janela anti-ida-e-volta local (km)", en: "local anti-round-trip window (km)" },
+  "maxseg.lookback.title": { pt: "Distância da âncora local: passos que voltam em direção a onde o trajeto estava há essa distância são penalizados — mata idas-e-voltas locais (sair e voltar pela pista vizinha) que a referência global (outra ponta) não enxerga. Vazio = automático (L/8); 0 = desliga o termo local.", en: "Trailing-anchor distance: steps moving back toward where the path was this far back get penalised — kills local out-and-backs (out one lane, back the adjacent one) that the global (other-end) reference can't see. Blank = auto (L/8); 0 = disable the local term." },
   "maxseg.selfx":        { pt: "atenção: o trajeto repassa {0}% das células (a soma conta repetições)", en: "warning: the walk revisits {0}% of its cells (the sum counts repeats)" },
   "maxseg.failed":       { pt: "busca falhou: {0}", en: "search failed: {0}" },
   "btn.refresh_style":   { pt: "Atualizar estilo", en: "Refresh style" },
@@ -613,7 +619,7 @@ const STRINGS = {
   "help.p.topn":         { pt: "A* com penalização iterativa: encontra a rota ótima, multiplica o componente de custo por distância (<code>a_rol·d + a_aero·d</code>) das células reusadas por uma penalidade, repete N vezes. Modos de repulsão: <em>por célula</em> (penaliza só células reusadas, bordas duras), <em>linear</em> (1/(d+1), suave e ampla), <em>quadrática</em> (1/(d²+1), suave e local).", en: 'A* with iterative penalisation: find the optimal route, multiply the distance-cost component (<code>a_roll·d + a_aero·d</code>) of its cells by a penalty, repeat N times. Repulsion modes: <em>per-cell</em> (only re-used cells get penalised, sharp), <em>linear</em> (1/(d+1), soft and wide), <em>square</em> (1/(d²+1), soft and local).' },
   "help.h.density":      { pt: "Densidade multi-referência", en: "Multi-reference density" },
   "help.h.maxseg":       { pt: "Segmento de densidade máxima", en: "Max-density segment" },
-  "help.p.maxseg":       { pt: "Análise pós-cálculo (3C.c): encontra um caminho contínuo <em>simples</em> (sem repassar células) de ~L km que maximiza a soma de densidade (<code>∑ densidade·metro</code>) sobre o campo de passagens/densidade já calculado. É o problema de <em>orienteering</em> (NP-difícil), então a busca é heurística: partidas múltiplas em células de alta densidade bem espaçadas, crescimento auto-evitante pelas duas pontas, lookahead guloso por candidato e penalização de curvas na pontuação (sem ela o objetivo bruto premia serpentear dentro de corredores largos; a penalização guia só a busca — a soma exibida é sempre a integral bruta da própria linha desenhada) — sem garantia de ótimo global, mas com o caminho sempre simples por construção (uma DP exata sobre <em>passeios</em> foi testada e descartada: ela degenerava em vaivém sobre o trecho mais quente). O campo é engrossado automaticamente (média por bloco) até caber num teto fixo de células. Camada de exibição/análise apenas: nunca recalcula o campo, só desenha em DEMs geográficos (como as demais rotas), e a linha some quando o resultado que a originou é invalidado.", en: "Post-compute analysis (3C.c): finds a continuous <em>simple</em> path (no cell revisited) of ~L km that maximises the density sum (<code>∑ density·metre</code>) over the already-computed passes/density field. This is the <em>orienteering</em> problem (NP-hard), so the search is heuristic: multiple starts at well-separated high-density cells, two-ended self-avoiding growth, a greedy lookahead per candidate, and a turn penalty in the scoring (without it the raw objective rewards snaking inside wide corridors; the penalty steers the search only — the displayed sum is always the drawn line's own raw integral) — no global-optimum guarantee, but the path is always simple by construction (an exact DP over <em>walks</em> was tried and dropped: it degenerated into shuttling over the single hottest stretch). The field is coarsened automatically (block mean) to a fixed cell budget. Display/analysis layer only: it never recomputes the field, draws only on geographic DEMs (like the other routes), and the line is cleared when the result it derives from is invalidated." },
+  "help.p.maxseg":       { pt: "Análise pós-cálculo (3C.c): encontra um caminho contínuo <em>simples</em> (sem repassar células) de ~L km que maximiza a soma de densidade (<code>∑ densidade·metro</code>) sobre o campo de passagens/densidade já calculado. É o problema de <em>orienteering</em> (NP-difícil), então a busca é heurística: partidas múltiplas em células de alta densidade bem espaçadas, crescimento auto-evitante pelas duas pontas, lookahead guloso por candidato e penalizações de forma com knobs no painel — suavidade de curvas (sem ela o objetivo bruto premia serpentear dentro de corredores largos) e retidão/anti-ida-e-volta (referência na outra ponta + âncora local + halo de proximidade, que impede sair e voltar pela pista vizinha; a retidão ρ = corda/comprimento = 1 − variância circular dos rumos aparece no resultado). As penalizações guiam só a busca — a soma exibida é sempre a integral bruta da própria linha desenhada — sem garantia de ótimo global, mas com o caminho sempre simples por construção (uma DP exata sobre <em>passeios</em> foi testada e descartada: ela degenerava em vaivém sobre o trecho mais quente). O campo é engrossado automaticamente (média por bloco) até caber num teto fixo de células. Camada de exibição/análise apenas: nunca recalcula o campo, só desenha em DEMs geográficos (como as demais rotas), e a linha some quando o resultado que a originou é invalidado.", en: "Post-compute analysis (3C.c): finds a continuous <em>simple</em> path (no cell revisited) of ~L km that maximises the density sum (<code>∑ density·metre</code>) over the already-computed passes/density field. This is the <em>orienteering</em> problem (NP-hard), so the search is heuristic: multiple starts at well-separated high-density cells, two-ended self-avoiding growth, a greedy lookahead per candidate, and shape penalties with panel knobs — turn smoothness (without it the raw objective rewards snaking inside wide corridors) and straightness/anti-round-trip (other-end reference + local trailing anchor + a proximity halo that stops going out one lane and back the next; straightness ρ = chord/length = 1 − circular variance of the headings, shown in the result). The penalties steer the search only — the displayed sum is always the drawn line's own raw integral — no global-optimum guarantee, but the path is always simple by construction (an exact DP over <em>walks</em> was tried and dropped: it degenerated into shuttling over the single hottest stretch). The field is coarsened automatically (block mean) to a fixed cell budget. Display/analysis layer only: it never recomputes the field, draws only on geographic DEMs (like the other routes), and the line is cleared when the result it derives from is invalidated." },
   "help.p.density":      { pt: "Para K pontos de referência: para cada um, computa as passagens, normaliza por <code>H·W</code>, soma; depois divide por <code>H·W</code> de novo. O resultado destaca corredores comuns entre múltiplas origens — útil para mapear \"onde a topografia força a passagem\". A camada de energia neste modo é a média por célula sobre as referências que conseguem alcançá-la. Perto da fronteira do orçamento (quando houver) ou da borda do DEM, o alcance de cada referência é cortado e as passagens ficam sistematicamente mais baixas ali; quando o orçamento (ou a borda) satura a maioria das referências, a densidade tende à uniformidade e as diferenças se achatam.", en: 'For K reference points: for each one, compute passes, normalise by <code>H·W</code>, sum; then divide by <code>H·W</code> again. The output highlights corridors common across multiple sources — useful for mapping "where topography forces traffic to converge". The energy layer in this mode is the per-cell mean across the references that can reach it. Near the budget frontier (when set) or the DEM border, each reference\'s reach is clipped and passes are systematically lower there; when the budget (or the border) saturates most references, density flattens toward uniform and differences wash out.' },
   "help.h.network":      { pt: "Restrição por rede vetorial (.gpkg)", en: "Vector network constraint (.gpkg)" },
   "help.p.network":      { pt: "Quando um arquivo de linhas vetoriais é carregado, toda a análise fica restrita às células tocadas por essas linhas — Dijkstra ignora qualquer célula fora da rede, e cliques no mapa \"agarram\" para a célula de rede mais próxima dentro do raio de snap configurado. O exemplo \"Viário RMSampa\" é dado © OpenStreetMap, licença ODbL.", en: 'When a vector-line file is loaded, the analysis is constrained to cells touched by those lines — Dijkstra ignores any cell outside the network, and map clicks "snap" to the nearest network cell within the configured snap radius. The "Viário RMSampa" example is data © OpenStreetMap, ODbL licence.' },
@@ -948,7 +954,7 @@ const PERSIST_IDS = [
   "passes-visible", "passes-opacity", "passes-vmin", "passes-vmax",
   "passes-gamma", "passes-mean-window", "passes-blend",
   "passes-vmin-b", "passes-vmax-b", "passes-gamma-b", "passes-mean-window-b",
-  "maxseg-len",
+  "maxseg-len", "maxseg-turn", "maxseg-elong", "maxseg-lookback",
 ];
 // Restored controls whose change must re-fire dependent UI (sub-panel
 // show/hide, basemap swap). We dispatch a synthetic change after restoring so
@@ -8570,6 +8576,22 @@ function runMaxseg() {
   const { H, W, dxM, dyM } = state.dem;
   const km = parseFloat(document.getElementById("maxseg-len")?.value);
   const targetLenM = (Number.isFinite(km) && km > 0 ? km : 20) * 1000;
+  // Shape knobs (0 = off, clamped like the worker's own sanitiser): turn
+  // smoothness and the anti-round-trip elongation preference. They steer the
+  // SEARCH only — the displayed sum is always the drawn line's raw integral.
+  const readShapeKnob = (id, dflt) => {
+    const v = parseFloat(document.getElementById(id)?.value);
+    return Number.isFinite(v) ? Math.min(4, Math.max(0, v)) : dflt;
+  };
+  const turnExp = readShapeKnob("maxseg-turn", 0.5);
+  const elongExp = readShapeKnob("maxseg-elong", 0.5);
+  // Local anti-round-trip window (km): blank = auto (target/8); 0 = off
+  // (global chord reference only). Passed to the worker in metres.
+  const lookRaw = document.getElementById("maxseg-lookback")?.value ?? "";
+  const lookKm = parseFloat(lookRaw);
+  const elongLookbackM = lookRaw.trim() === "" || !Number.isFinite(lookKm)
+    ? targetLenM / 8
+    : Math.max(0, lookKm) * 1000;
 
   const minCellM = Math.min(dxM, dyM);
   const pick = maxsegPickFactor(H, W, minCellM, targetLenM);
@@ -8613,7 +8635,7 @@ function runMaxseg() {
     say(t("maxseg.failed", err?.message || "worker error"));
   };
   w.postMessage(
-    { kind: "maxseg", density, allowed, H: Hc, W: Wc, dx: dxM * f, dy: dyM * f, targetLenM },
+    { kind: "maxseg", density, allowed, H: Hc, W: Wc, dx: dxM * f, dy: dyM * f, targetLenM, turnExp, elongExp, elongLookbackM },
     [density.buffer, allowed.buffer],
   );
   say(t("maxseg.progress", 0));
@@ -8636,6 +8658,7 @@ function renderMaxseg(m, { f, Wc, fieldMean, minCellM }) {
     meanD.toExponential(2),
     ratio.toFixed(1),
     Math.round(f * minCellM),
+    Number.isFinite(m.straightness) ? m.straightness.toFixed(2) : "—",
   );
   // Dark casing under the fuchsia stroke: the segment hugs the brightest
   // corridor cells by construction — exactly where a single thin line would

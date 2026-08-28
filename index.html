@@ -1851,10 +1851,15 @@
               É o problema de <em>orienteering</em> (NP-difícil), então a
               busca é heurística: partidas múltiplas em células quentes bem
               espaçadas, crescimento auto-evitante pelas duas pontas,
-              lookahead guloso e penalização de curvas (sem ela o objetivo
-              bruto premia serpentear em corredores largos; a soma exibida
-              continua sendo a integral bruta da linha), sobre o campo
-              engrossado automaticamente (média por bloco, ≤ 4 M células) —
+              lookahead guloso e penalizações de forma com knobs no painel —
+              suavidade de curvas (sem ela o objetivo bruto premia serpentear
+              em corredores largos) e retidão/anti-ida-e-volta (referência
+              global na outra ponta + âncora local + halo de proximidade, que
+              impede sair e voltar pela pista vizinha; retidão ρ =
+              corda/comprimento = 1 − variância circular dos rumos, exibida
+              no resultado). As penalizações guiam só a busca — a soma
+              exibida continua sendo a integral bruta da linha. Campo
+              engrossado automaticamente (média por bloco, ≤ 4 M células);
               uma DP exata sobre <em>passeios</em> foi testada e descartada
               (degenerava em vaivém sobre o trecho mais quente). Linha fúcsia com contorno
               escuro, mapa enquadra o resultado; tooltip com comprimento,
@@ -2765,6 +2770,22 @@
             <div>
               <label for="maxseg-len" data-i18n="maxseg.len">comprimento alvo (km)</label>
               <input type="number" id="maxseg-len" value="20" min="0.5" step="any" />
+            </div>
+            <div>
+              <label for="maxseg-lookback" data-i18n="maxseg.lookback" data-i18n-title="maxseg.lookback.title">janela anti-ida-e-volta local (km)</label>
+              <input type="number" id="maxseg-lookback" placeholder="auto" min="0" step="any" data-i18n-title="maxseg.lookback.title" />
+            </div>
+          </div>
+          <!-- Shape knobs: multiplicative penalties in the SEARCH scoring only —
+               the displayed sum is always the drawn line's own raw integral. -->
+          <div class="row">
+            <div>
+              <label for="maxseg-turn" data-i18n="maxseg.turn" data-i18n-title="maxseg.turn.title">suavidade de curvas (expoente)</label>
+              <input type="number" id="maxseg-turn" value="0.5" min="0" max="4" step="0.1" data-i18n-title="maxseg.turn.title" />
+            </div>
+            <div>
+              <label for="maxseg-elong" data-i18n="maxseg.elong" data-i18n-title="maxseg.elong.title">retidão / anti-ida-e-volta (expoente)</label>
+              <input type="number" id="maxseg-elong" value="0.5" min="0" max="4" step="0.1" data-i18n-title="maxseg.elong.title" />
             </div>
           </div>
           <button type="button" class="secondary" id="maxseg-run" data-i18n="btn.maxseg_run" style="margin-top: 4px;">Buscar segmento</button>

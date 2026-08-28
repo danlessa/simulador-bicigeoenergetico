@@ -26,13 +26,29 @@ concentra mais passagens?".
   qualidade contra enumeração exata de caminhos simples em grades pequenas
   (≥ 90% do ótimo do próprio objetivo em campo aleatório — o pior caso; em
   campos de corredor, o caso de uso, segue o cume por inteiro).
-- A busca pontua cada passo com **penalização de curva** multiplicativa
-  (`((1+cos Δθ)/2)^0.5` contra a direção anterior da perna, com a dobra na
-  semente acoplada entre as pernas): sem ela, o objetivo bruto premia
-  serpentear dentro de corredores largos (medido: sinuosidade 1,41 com 100%
-  de curvas ≥ 90° num corredor de 3 células — o "ziggy-zaggy"; com a
-  penalização: 1,04 e 0%). A penalização só guia a BUSCA — a soma exibida
-  continua sendo a integral bruta da própria linha desenhada.
+- A busca pontua cada passo com penalizações de FORMA multiplicativas, todas
+  com **knobs no painel 3C.c** (expoentes 0 = desliga) e todas guiando só a
+  BUSCA — a soma exibida continua sendo a integral bruta da própria linha:
+  - **Suavidade de curvas** (`((1+cos Δθ)/2)^exp` contra a direção anterior
+    da perna, dobra na semente acoplada entre as pernas): sem ela o objetivo
+    bruto premia serpentear dentro de corredores largos (medido: sinuosidade
+    1,41 com 100% de curvas ≥ 90° num corredor de 3 células — o
+    "ziggy-zaggy"; com ela: 1,04 e 0%).
+  - **Retidão / anti-ida-e-volta** (um expoente, três termos): (a) global —
+    variação da distância à outra ponta do trajeto; (b) local — variação da
+    distância a uma âncora `janela` metros atrás no trajeto (knob próprio,
+    vazio = L/8); (c) **halo de proximidade** — passo que cai a ≤ 2 células
+    de um trecho do próprio trajeto mais antigo que ~3 células recebe
+    ×0,02^exp (auto-evitação alargada: o segmento não se abraça; carimbos em
+    coordenada de arco COM SINAL, senão as duas pernas em passo trocado se
+    isentavam mutuamente). Sem os termos locais, um espigão quente sem saída
+    virava ida-e-volta pela pista vizinha (medido: 23 células de espigão,
+    ρ 0,42); com eles, o espigão é atravessado UMA vez (12 células, ρ 0,72).
+  - Na seleção entre sementes vence recompensa × ρ^exp, onde **ρ =
+    corda/comprimento = comprimento médio resultante circular dos rumos**
+    (= 1 − variância circular; o vetor resultante ponderado por comprimento
+    É a corda) — num corredor em U, ρ sobe 0,44 → 0,57 → 0,76 com o knob
+    0 → 0,5 → 2. ρ ("retidão") aparece no resultado e no tooltip.
 - Uma DP **exata** em camadas sobre *passeios* (só o vaivém imediato
   proibido) foi implementada primeiro e descartada: medido num campo de
   corredores realista, o "segmento de 20 km" dela colapsava em 4 km do
