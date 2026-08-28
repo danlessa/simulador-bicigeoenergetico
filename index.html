@@ -1845,13 +1845,15 @@
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
               <p><strong>v75</strong> — 2026-08-28<br/>
               <strong>Segmentos consecutivos não-sobrepostos (3C.c).</strong>
-              Novo knob "nº de segmentos" (1–10): a cada segmento encontrado,
+              Novo knob "nº de segmentos" (1–100): a cada segmento encontrado,
               a densidade é zerada num tubo de ±2 células ao redor dele e a
               busca roda de novo no que sobrou (sementes re-sorteadas). Um
               segmento posterior pode cruzar um anterior perpendicular (as
               células seguem transitáveis, só não rendem nada), mas não
               repassa o mesmo corredor nem a pista vizinha. Cores por posto,
-              estatísticas por segmento no resultado e nos tooltips.</p>
+              estatísticas por segmento no resultado e nos tooltips; custo
+              ~linear no nº de segmentos, com parada antecipada em campo
+              exaurido.</p>
               <p><strong>v74</strong> — 2026-08-27<br/>
               <strong>Segmento de densidade máxima (3C.c).</strong> Depois de
               um cálculo de densidade/passagens, um novo painel encontra um
@@ -2787,7 +2789,7 @@
             </div>
             <div>
               <label for="maxseg-nseg" data-i18n="maxseg.nseg" data-i18n-title="maxseg.nseg.title">nº de segmentos</label>
-              <input type="number" id="maxseg-nseg" value="1" min="1" max="10" step="1" data-i18n-title="maxseg.nseg.title" />
+              <input type="number" id="maxseg-nseg" value="1" min="1" max="100" step="1" data-i18n-title="maxseg.nseg.title" />
             </div>
           </div>
           <div class="row">

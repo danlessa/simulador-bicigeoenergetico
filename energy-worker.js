@@ -1529,6 +1529,7 @@ const MAXSEG_TURN_EXP = 0.5;
 // integral.
 const MAXSEG_ELONG_EXP = 0.5;
 const MAXSEG_HALO_CELLS = 2;   // Chebyshev radius of the self-proximity halo
+const MAXSEG_MAX_SEGMENTS = 100; // consecutive-segments cap (cost ~linear in n)
 
 function maxDensitySegment(opts) {
   const {
@@ -1560,7 +1561,7 @@ function maxDensitySegment(opts) {
   // perpendicular (it just collects nothing there) — "non-overlapping" means
   // no shared corridor stretches, and the tube stops segment k+1 from simply
   // riding the adjacent lane of segment k.
-  const nSeg = Math.min(10, Math.max(1, (opts.nSegments | 0) || 1));
+  const nSeg = Math.min(MAXSEG_MAX_SEGMENTS, Math.max(1, (opts.nSegments | 0) || 1));
 
   // ---- Seed selection: top-density pool, then spacing filter ----
   // Min-heap of the MAXSEG_TOP_POOL highest-density allowed cells (one pass),
@@ -1655,18 +1656,24 @@ function maxDensitySegment(opts) {
     ? (g) => Math.pow(Math.max(0, (1 + g) / 2), eExp)
     : () => 1;
 
-  const visited = new Uint8Array(N);
+  // Per-run scratch, GENERATION-STAMPED instead of refilled: a cell is
+  // visited (or its halo stamp valid) iff its gen equals the current run's
+  // `gen`, bumped once per start. With plain fills, every start paid two
+  // O(N) clears — at 100 segments × 24 starts on a 4 M-cell grid that's
+  // ~20 GB of memory writes doing nothing.
+  const visitGen = new Int32Array(N); // visited ⇔ visitGen[i] === gen
   const rollMarks = new Int32Array(MAXSEG_ROLLOUT);
-  // stamp[cell] = path length at which the REAL path visited the cell
-  // (−1 = not on the path). Rollout temp-cells never stamp — the halo is
-  // about the established path, and rollout cells are "recent" by definition.
   // stamp[cell] = SIGNED along-path coordinate at which the real path visited
-  // the cell: head leg +cum, tail leg −cum, seed 0, NaN = not on the path.
+  // the cell (head leg +cum, tail leg −cum, seed 0); valid iff
+  // stampGen[cell] === gen. Rollout temp-cells never stamp — the halo is
+  // about the established path, and rollout cells are "recent" by definition.
   // Signed coordinates make proximity age = |Δcoord| the true along-path
   // separation — with plain run-length stamps, the two legs extending in
   // alternation kept opposite-leg neighbours "recent" forever, and a
   // lockstep twin-lane descent rode the tail exemption unpenalised.
   const stamp = new Float32Array(N);
+  const stampGen = new Int32Array(N);
+  let gen = 0;
   const haloF = (eExp > 0 && lookM > 0) ? Math.pow(0.02, eExp) : 1;
   // Tail exemption: a turn-penalised smooth path keeps its radius-2
   // neighbours ≤ ~2–3 cells behind, so anything ≥ 3 cells of along-path
@@ -1682,8 +1689,8 @@ function maxDensitySegment(opts) {
     for (let rr = r0; rr <= r1; rr++) {
       const rowBase = rr * W;
       for (let cc = c0; cc <= c1; cc++) {
-        const st = stamp[rowBase + cc];
-        if (st === st && Math.abs(coord - st) >= haloAgeM) return true; // st===st: not NaN
+        const i = rowBase + cc;
+        if (stampGen[i] === gen && Math.abs(coord - stamp[i]) >= haloAgeM) return true;
       }
     }
     return false;
@@ -1719,7 +1726,7 @@ function maxDensitySegment(opts) {
         const nr = r + drs[k], nc = c + dcs[k];
         if (nr < 0 || nr >= H || nc < 0 || nc >= W) continue;
         const n = nr * W + nc;
-        if (!allowed[n] || visited[n]) continue;
+        if (!allowed[n] || visitGen[n] === gen) continue;
         let s = 0.5 * (density[cur] + density[n]) * lens[k] * turnF[dir * 8 + k];
         let d1 = 0, d2 = 0;
         if (eExp > 0) {
@@ -1736,7 +1743,7 @@ function maxDensitySegment(opts) {
       }
       if (bestN < 0) break;
       sum += bestS;
-      visited[bestN] = 1;
+      visitGen[bestN] = gen;
       rollMarks[nMarks++] = bestN;
       cur = bestN;
       dir = bestK;
@@ -1745,7 +1752,7 @@ function maxDensitySegment(opts) {
       coord += sideSign * lens[bestK];
       rolled += lens[bestK];
     }
-    for (let i = 0; i < nMarks; i++) visited[rollMarks[i]] = 0;
+    for (let i = 0; i < nMarks; i++) visitGen[rollMarks[i]] = 0; // 0 ≠ any gen ≥ 1
     rolloutLenOut = rolled;
     return sum;
   };
@@ -1768,10 +1775,10 @@ function maxDensitySegment(opts) {
   const best = { Rsel: -Infinity, Rraw: 0, len: 0, rho: 0, path: null };
   for (let si = 0; si < starts.length; si++) {
     const s = starts[si];
-    visited.fill(0);
-    visited[s] = 1;
-    stamp.fill(NaN);
+    gen++; // one generation per start — invalidates all prior marks at O(1)
+    visitGen[s] = gen;
     stamp[s] = 0;
+    stampGen[s] = gen;
     const headArr = [], tailArr = []; // cells beyond s on each side, in growth order
     const headCum = [], tailCum = []; // cumulative metric length seed → cell
     let headEnd = s, tailEnd = s;
@@ -1834,7 +1841,7 @@ function maxDensitySegment(opts) {
           const nr = r + drs[k], nc = c + dcs[k];
           if (nr < 0 || nr >= H || nc < 0 || nc >= W) continue;
           const n = nr * W + nc;
-          if (!allowed[n] || visited[n]) continue;
+          if (!allowed[n] || visitGen[n] === gen) continue;
           const coordN = sideSign * (legLen + lens[k]);
           const base = 0.5 * (density[end] + density[n]) * lens[k];
           let pen = base * turnF[endDir * 8 + k];
@@ -1843,9 +1850,9 @@ function maxDensitySegment(opts) {
             if (anch >= 0) pen *= elongF((distM(nr, nc, anchR, anchC) - dA0) / lens[k]);
             if (haloF < 1 && haloHit(n, coordN)) pen *= haloF;
           }
-          visited[n] = 1;
+          visitGen[n] = gen;
           const rollSum = rollout(n, k, otherR, otherC, anchR, anchC, coordN, sideSign, targetLenM - len - lens[k]);
-          visited[n] = 0;
+          visitGen[n] = 0;
           // Rate, not total: penalized reward per metre of (step + lookahead).
           const score = (pen + rollSum) / (lens[k] + rolloutLenOut);
           if (score > bestScore) {
@@ -1854,7 +1861,7 @@ function maxDensitySegment(opts) {
         }
       }
       if (bestN < 0) break; // both ends stuck (mask pocket / grid corner)
-      visited[bestN] = 1;
+      visitGen[bestN] = gen;
       if (bestSide === 0) {
         if (!headArr.length) headDir0 = bestK;
         headArr.push(bestN); headEnd = bestN; headDir = bestK;
@@ -1866,6 +1873,7 @@ function maxDensitySegment(opts) {
       }
       len += lens[bestK];
       stamp[bestN] = bestSide === 0 ? headLen : -tailLen; // signed along-path coord
+      stampGen[bestN] = gen;
       Rraw += bestBase;
       Rpen += bestPen;
       lastPen = bestPen; lastLen = lens[bestK];

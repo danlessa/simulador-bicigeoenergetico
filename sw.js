@@ -678,7 +678,7 @@
 //              the same penalized objective + shuttle/zigzag/round-trip
 //              regressions.
 //   v74 → v75: Consecutive non-overlapping segments (3C.c "nº de
-//              segmentos", 1–10): after each found segment the worker zeroes
+//              segmentos", 1–100): after each found segment the worker zeroes
 //              its density in a ±2-cell tube and re-runs the search
 //              (seed pool re-picked) on what is left — segment k+1 can
 //              still CROSS earlier ones perpendicular (cells stay
@@ -686,7 +686,11 @@
 //              its adjacent lane. Ranked colours (fuchsia → violet →
 //              indigo → …), per-segment stats in the meta + tooltips,
 //              fitBounds over the union. Wire format gains `segments`
-//              (top-level fields still mirror segments[0]).
+//              (top-level fields still mirror segments[0]). Cost is
+//              ~linear in the count (~1.3 s/segment at the 4 M-cell worst
+//              case; per-start scratch is generation-stamped — plain fills
+//              would pay ~20 GB of writes at 100 segments); an exhausted
+//              field stops early with fewer segments.
 const VERSION  = "v75";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;

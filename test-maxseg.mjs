@@ -437,6 +437,32 @@ for (const { name, dx, dy } of [
   }
 }
 
+// ---- 5d. many segments + exhaustion ----
+// The cap is 100; on a ZERO-background field with two corridors EXACTLY one
+// target long, requesting 100 must return exactly 2 positive-sum segments
+// and stop early — never pad with arbitrary zero-sum lines. (Corridors
+// longer than the target legitimately yield multiple segments each — the
+// peel only removes the found stretch's tube, not the whole corridor.)
+{
+  console.log("many segments: early stop on an exhausted field");
+  const H = 40, W = 60, N = H * W, dx = 100, dy = 100;
+  const rnd = prng(5);
+  const density = new Float32Array(N); // background EXACTLY zero
+  for (let c = 10; c <= 40; c++) density[15 * W + c] = 10 + 0.01 * rnd(); // 31 cells = one target
+  for (let c = 10; c <= 40; c++) density[30 * W + c] = 8 + 0.01 * rnd();
+  const allowed = new Uint8Array(N).fill(1);
+  const { done, error } = run({
+    kind: "maxseg", turnExp: 0.5, elongExp: 0, nSegments: 100,
+    density, allowed, H, W, dx, dy, targetLenM: 3000,
+  });
+  assert(!error && done, "worker returned a result");
+  if (done) {
+    assert(done.segments.length === 2,
+      `exactly the 2 positive-sum segments returned (${done.segments.length})`);
+    assert(done.segments.every((s) => s.sum > 0), "every returned segment has positive sum");
+  }
+}
+
 // ---- 6. app-side coarsening (MIRROR of app.js coarsenFieldForMaxseg —
 //         hand-kept-in-sync, same rule as the test-water-raster mirrors) ----
 function coarsenFieldForMaxseg(field, mask, H, W, f) {

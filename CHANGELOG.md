@@ -12,7 +12,7 @@ history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 ## v75 — 2026-08-28
 
 **Segmentos consecutivos não-sobrepostos (3C.c).** Novo knob "nº de
-segmentos" (1–10): depois de encontrar cada segmento, o worker zera a
+segmentos" (1–100): depois de encontrar cada segmento, o worker zera a
 densidade num tubo de ±2 células ao redor dele e roda a busca de novo no que
 sobrou (pool de sementes re-sorteado por segmento — o "topo de densidade"
 muda depois de cada descasque). As células continuam transitáveis: um
@@ -22,7 +22,11 @@ regressão com dois corredores paralelos exige zero células compartilhadas e
 distância > 2 células do tubo. Cores por posto (fúcsia → violeta → índigo →
 …), estatísticas por segmento na linha de resultado e nos tooltips,
 enquadramento do mapa na união. Formato de mensagem ganha `segments`
-(campos de topo continuam espelhando o 1º segmento — compatível).
+(campos de topo continuam espelhando o 1º segmento — compatível). Custo
+~linear no nº de segmentos (~1,3 s/segmento no pior caso de 4 M células —
+o scratch por partida virou carimbo de geração em vez de dois fills O(N),
+senão 100 segmentos pagariam ~20 GB de escrita só limpando arrays); num
+campo exaurido a busca para antes e retorna menos segmentos.
 
 ## v74 — 2026-08-27
 
