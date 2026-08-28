@@ -8694,7 +8694,7 @@ function renderMaxseg(m, { f, Wc, fieldMean, minCellM }) {
     return fieldMean > 0 ? meanD / fieldMean : 0;
   });
   const rMax = Math.max(...ratios);
-  const layers = [];
+  const entries = []; // {casing, stroke, ratio} per rank — z-sorted before adding
   const strokes = []; // {stroke, t} — for live palette recolouring
   const metaLines = [];
   let bounds = null;
@@ -8728,12 +8728,21 @@ function renderMaxseg(m, { f, Wc, fieldMean, minCellM }) {
     });
     stroke.bindTooltip(label, { sticky: true });
     stroke.bindPopup(label);
-    layers.push(casing, stroke);
+    entries.push({ casing, stroke, ratio });
     strokes.push({ stroke, t: tPos });
     bounds = bounds ? bounds.extend(stroke.getBounds()) : stroke.getBounds();
     metaLines.push(label);
   }
-  const line = L.layerGroup(layers).addTo(map);
+  // Z-order by density: add in ASCENDING ratio order so the densest segment
+  // paints LAST (on top) at crossings, its casing separating it from the
+  // lines beneath. The group goes on the map FIRST and layers are added one
+  // by one — with the group already on the map each addLayer reaches the
+  // pane immediately in call order, which is what fixes the paint order
+  // (a pre-filled L.layerGroup(array) replays its members in internal id
+  // order on addTo, not array order).
+  entries.sort((a, b) => a.ratio - b.ratio);
+  const line = L.layerGroup().addTo(map);
+  for (const e of entries) { line.addLayer(e.casing); line.addLayer(e.stroke); }
   // Bring the result into view — the best segment is often far from the
   // current viewport, and "found but off-screen" reads as "nothing happened".
   if (bounds) map.fitBounds(bounds, { padding: [40, 40] });

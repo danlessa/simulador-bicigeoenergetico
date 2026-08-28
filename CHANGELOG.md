@@ -19,7 +19,10 @@ uma paleta CET selecionável no painel (padrão **CET-R1**, arco-íris
 perceptualmente uniforme). Trocar a paleta recolore as linhas na hora
 (camada de estilo apenas — sem recomputar, mesma regra do colormap das
 rotas); os números exatos (×N da média do campo) seguem no tooltip e na
-linha de resultado.
+linha de resultado. A ordem de empilhamento no mapa também segue a
+densidade: os segmentos são adicionados em ordem crescente de razão, então
+o mais denso pinta por cima nos cruzamentos (a lista de resultado continua
+em ordem de posto).
 
 ## v76 — 2026-08-28
 

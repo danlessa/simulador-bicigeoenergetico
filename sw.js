@@ -708,7 +708,9 @@
 //              palette (default CET-R1, perceptually uniform rainbow) —
 //              replaces the arbitrary rank colours. Palette change
 //              recolours the drawn strokes in place (style layer only, no
-//              recompute — same rule as the routes colormap).
+//              recompute — same rule as the routes colormap). Z-order
+//              follows density too: segments are added in ascending-ratio
+//              order so the densest paints on top at crossings.
 const VERSION  = "v77";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
