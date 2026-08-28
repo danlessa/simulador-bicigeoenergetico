@@ -24,6 +24,18 @@ densidade: os segmentos são adicionados em ordem crescente de razão, então
 o mais denso pinta por cima nos cruzamentos (a lista de resultado continua
 em ordem de posto).
 
+**Infra de deploy (cache-busting).** O deploy do v77 saiu invisível: purges
+por URL e até o purge total da zona não alcançavam uma cópia velha do
+app.js num tier superior do cache da Cloudflare (edge dava MISS e
+re-primava o conteúdo antigo do parent, age 1336 s — medido). O
+`deploy.sh` agora carimba as URLs dos assets JS com a VERSION do sw.js na
+hora do staging (index.html → `app.js?v=NN` → `energy-worker.js?v=NN` →
+`graph-engine.js?v=NN`, precache do SW idem): cada release ganha chave de
+cache nova e nenhum purge volta a ser condição de sucesso do deploy. O
+sw.js continua sem versão na URL de propósito (o navegador precisa de URL
+estável pra detectar updates; já é no-cache). Os fontes no repo mantêm as
+URLs limpas — só as cópias staged são reescritas.
+
 ## v76 — 2026-08-28
 
 **Dois consertos.** (1) O knob "nº de segmentos" ficava silenciosamente

@@ -92,6 +92,33 @@ cp icons/icon-maskable-192-v2.png  "$STAGE/icons/"
 cp icons/icon-maskable-512-v2.png  "$STAGE/icons/"
 cp icons/apple-touch-icon-v2.png   "$STAGE/icons/"
 
+# 2. Cache-bust the JS asset URLs with the sw.js VERSION. Cloudflare fronts
+#    the site with tiered caching, and single-URL AND zone-wide purges were
+#    OBSERVED not reaching a stale upper-tier entry (2026-08-28: after a
+#    purge the edge MISSed and re-primed the OLD app.js from its cache
+#    parent, age 1336 s — the v77 deploy shipped invisibly). Versioned query
+#    strings give every release a fresh cache key, so no purge is ever
+#    load-bearing for the app shell: index.html (never edge-cached — .html
+#    isn't a Cloudflare default-cacheable extension, verified DYNAMIC) points
+#    at app.js?v=NN, app.js spawns energy-worker.js?v=NN, the worker imports
+#    graph-engine.js?v=NN, and sw.js's precache list is stamped identically
+#    so the SW caches exactly the URLs the pages request. sw.js itself stays
+#    unversioned on purpose (its URL must be stable for browser SW updates;
+#    it's already no-cache). Only the STAGED copies are rewritten — the repo
+#    keeps clean relative URLs for local dev. Guards fail the deploy loudly
+#    if a source pattern drifts.
+echo ">> Version-stamping asset URLs…"
+V="$(sed -n 's/^const VERSION *= *"\(v[0-9][0-9]*\)".*/\1/p' sw.js)"
+[[ -n "$V" ]] || { echo "could not read VERSION from sw.js" >&2; exit 1; }
+sed -i '' "s|src=\"./app.js\"|src=\"./app.js?v=${V}\"|" "$STAGE/index.html"
+sed -i '' "s|const WORKER_URL = \"./energy-worker.js\"|const WORKER_URL = \"./energy-worker.js?v=${V}\"|" "$STAGE/app.js"
+sed -i '' "s|importScripts(\"graph-engine.js\")|importScripts(\"graph-engine.js?v=${V}\")|" "$STAGE/energy-worker.js"
+sed -i '' "s|\"./app.js\",|\"./app.js?v=${V}\",|; s|\"./energy-worker.js\",|\"./energy-worker.js?v=${V}\",|; s|\"./graph-engine.js\",|\"./graph-engine.js?v=${V}\",|" "$STAGE/sw.js"
+grep -q "app\.js?v=${V}" "$STAGE/index.html"        || { echo "stamp failed: index.html" >&2; exit 1; }
+grep -q "energy-worker\.js?v=${V}" "$STAGE/app.js"  || { echo "stamp failed: app.js" >&2; exit 1; }
+grep -q "graph-engine\.js?v=${V}" "$STAGE/energy-worker.js" || { echo "stamp failed: energy-worker.js" >&2; exit 1; }
+grep -q "app\.js?v=${V}" "$STAGE/sw.js"             || { echo "stamp failed: sw.js" >&2; exit 1; }
+
 if ! command -v gcloud >/dev/null 2>&1; then
   echo "gcloud not on PATH. Install the Google Cloud SDK." >&2
   exit 1
