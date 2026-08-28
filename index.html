@@ -1858,10 +1858,15 @@
               impede sair e voltar pela pista vizinha; retidão ρ =
               corda/comprimento = 1 − variância circular dos rumos, exibida
               no resultado). As penalizações guiam só a busca — a soma
-              exibida continua sendo a integral bruta da linha. Campo
-              engrossado automaticamente (média por bloco, ≤ 4 M células);
-              uma DP exata sobre <em>passeios</em> foi testada e descartada
-              (degenerava em vaivém sobre o trecho mais quente). Linha fúcsia com contorno
+              exibida continua sendo a integral bruta da linha. Busca com
+              lookahead limitado ao orçamento restante, escolha gulosa por
+              recompensa por metro e seleção com rateio no alvo exato
+              (correções medidas contra ótimos enumeráveis; mais sementes/
+              lookahead que o padrão mediu ≤ 0,7% de efeito — não viraram
+              knobs). Campo engrossado automaticamente (média por bloco,
+              ≤ 4 M células); uma DP exata sobre <em>passeios</em> foi
+              testada e descartada (degenerava em vaivém sobre o trecho
+              mais quente). Linha fúcsia com contorno
               escuro, mapa enquadra o resultado; tooltip com comprimento,
               densidade média (×N da média do campo) e célula efetiva. Só
               análise/exibição, DEMs geográficos: nunca recalcula o campo, e

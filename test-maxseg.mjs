@@ -187,10 +187,13 @@ for (const { name, dx, dy } of [
     const audit = auditPath(done, density, allowed, H, W, dx, dy);
     // Heuristic, not exact — but it must land close to the exact optimum of
     // ITS OWN (turn-penalized) objective. Deterministic (fixed seed), so a
-    // pinned floor is safe; report the actual ratio for the log.
+    // pinned floor is safe; report the actual ratio for the log. The 0.95
+    // floor locks in the budget-capped rollout (uncapped lookahead scored
+    // candidates by reward beyond the remaining length and these fields
+    // measured 0.86–0.91).
     const ratio = audit.pen / ref;
-    assert(ratio >= 0.9 && ratio <= 1.0 + 1e-9,
-      `within 10% of the exact penalized optimum (ratio ${ratio.toFixed(3)}: ${audit.pen.toFixed(1)} vs ${ref.toFixed(1)})`);
+    assert(ratio >= 0.95 && ratio <= 1.0 + 1e-9,
+      `within 5% of the exact penalized optimum (ratio ${ratio.toFixed(3)}: ${audit.pen.toFixed(1)} vs ${ref.toFixed(1)})`);
     assert(audit.ok, "path is a valid SIMPLE path (8-neighbour, allowed, no revisits)");
     assert(Math.abs(audit.sum - done.sum) <= 1e-9 * Math.max(1, Math.abs(done.sum)),
       "reported sum == the path's own recomputed line integral");
@@ -231,8 +234,14 @@ for (const { name, dx, dy } of [
 {
   console.log("zigzag regression (3-cell-wide corridor)");
   const H = 40, W = 60, N = H * W, dx = 100, dy = 100;
-  const density = new Float32Array(N).fill(0.01);
-  for (let r = 19; r <= 21; r++) for (let c = 0; c < W; c++) density[r * W + c] = 10;
+  // Tiny deterministic noise keeps the field non-degenerate: an EXACTLY
+  // uniform corridor ties straight vs folded runs to within the turn
+  // penalty, and the winner becomes a tie-breaking artefact (real density
+  // fields never have exact ties).
+  const rnd = prng(7);
+  const density = new Float32Array(N);
+  for (let i = 0; i < N; i++) density[i] = 0.01 * rnd();
+  for (let r = 19; r <= 21; r++) for (let c = 0; c < W; c++) density[r * W + c] = 10 + 0.01 * rnd();
   const allowed = new Uint8Array(N).fill(1);
   const { done, error } = run({ kind: "maxseg", turnExp: 0.5, elongExp: 0, density, allowed, H, W, dx, dy, targetLenM: 3000 });
   assert(!error && done, "worker returned a result");

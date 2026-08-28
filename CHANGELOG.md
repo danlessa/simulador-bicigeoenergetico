@@ -47,8 +47,20 @@ concentra mais passagens?".
   - Na seleção entre sementes vence recompensa × ρ^exp, onde **ρ =
     corda/comprimento = comprimento médio resultante circular dos rumos**
     (= 1 − variância circular; o vetor resultante ponderado por comprimento
-    É a corda) — num corredor em U, ρ sobe 0,44 → 0,57 → 0,76 com o knob
+    É a corda) — num corredor em U, ρ sobe 0,44 → 0,63 → 0,76 com o knob
     0 → 0,5 → 2. ρ ("retidão") aparece no resultado e no tooltip.
+- Três correções de qualidade da busca, todas medidas em campos com ótimo
+  enumerável: (a) o lookahead é **limitado ao orçamento restante** (sem o
+  teto, perto do fim os candidatos eram ranqueados por recompensa que nunca
+  seria percorrida — profundidade 12 pontuava PIOR que 6); (b) a escolha
+  gulosa maximiza **recompensa por metro**, não por passo (por passo, a
+  diagonal rende 41% mais d̄·len e a busca fazia slalom em qualquer corredor
+  com ≥ 2 células de largura — o corredor-teste de 3 células saiu de
+  sinuosidade 1,74 para 1,00 exata); (c) a seleção entre sementes **rateia o
+  passo final no alvo exato** (parar no primeiro passo que cruza o alvo dava
+  até +4,6% de recompensa extra a caminhos ricos em diagonais). Aumentar
+  sementes (8→96) ou lookahead (6→48) além dos padrões: efeito medido ≤ 0,7%
+  com custo ~linear (1 s → 16 s em 4 M células) — por isso não viraram knobs.
 - Uma DP **exata** em camadas sobre *passeios* (só o vaivém imediato
   proibido) foi implementada primeiro e descartada: medido num campo de
   corredores realista, o "segmento de 20 km" dela colapsava em 4 km do

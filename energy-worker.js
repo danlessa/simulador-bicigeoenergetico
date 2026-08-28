@@ -1680,14 +1680,28 @@ function maxDensitySegment(opts) {
   // depth-limited; returns the summed PENALIZED reward (turn + elongation,
   // the latter against the FIXED other endpoint `otherR/otherC`). Temp-marks
   // visited cells and unmarks before returning.
-  const rollout = (from, fromDir, otherR, otherC, anchR, anchC, coord0, sideSign) => {
+  // `remainM` caps the lookahead at the REMAINING length budget: without it,
+  // near the end of a path candidates are ranked by reward that will never
+  // be walked (measured on exhaustible fields: uncapped depth-12+ scored
+  // WORSE than depth-6 because of exactly this overshoot).
+  // Steps are CHOSEN by penalized reward PER METRE (rate), not per step —
+  // with per-step maximisation a diagonal collects 41% more d̄·len than an
+  // axis move and greedy slaloms across any corridor wider than one cell
+  // (the 45° turn factor 0.92 can't offset ×1.41). The accumulated reward
+  // stays the actual Σ per-step values.
+  // rolloutLenOut: metric length of the greedy continuation (module-scope
+  // out-param — this closure is called millions of times per run and a
+  // {sum, len} return would allocate on every call).
+  let rolloutLenOut = 0;
+  const rollout = (from, fromDir, otherR, otherC, anchR, anchC, coord0, sideSign, remainM) => {
     let cur = from, dir = fromDir, sum = 0, nMarks = 0, coord = coord0;
+    let rolled = 0;
     const fr = (from / W) | 0, fc = from - fr * W;
     let dOther = distM(fr, fc, otherR, otherC);
     let dAnch = anchR >= 0 ? distM(fr, fc, anchR, anchC) : 0;
-    for (let d = 0; d < MAXSEG_ROLLOUT; d++) {
+    for (let d = 0; d < MAXSEG_ROLLOUT && rolled < remainM; d++) {
       const r = (cur / W) | 0, c = cur - r * W;
-      let bestS = -Infinity, bestN = -1, bestK = -1, bestD1 = 0, bestD2 = 0;
+      let bestRate = -Infinity, bestS = 0, bestN = -1, bestK = -1, bestD1 = 0, bestD2 = 0;
       for (let k = 0; k < 8; k++) {
         const nr = r + drs[k], nc = c + dcs[k];
         if (nr < 0 || nr >= H || nc < 0 || nc >= W) continue;
@@ -1704,7 +1718,8 @@ function maxDensitySegment(opts) {
           }
           if (haloF < 1 && haloHit(n, coord + sideSign * lens[k])) s *= haloF;
         }
-        if (s > bestS) { bestS = s; bestN = n; bestK = k; bestD1 = d1; bestD2 = d2; }
+        const rate = s / lens[k];
+        if (rate > bestRate) { bestRate = rate; bestS = s; bestN = n; bestK = k; bestD1 = d1; bestD2 = d2; }
       }
       if (bestN < 0) break;
       sum += bestS;
@@ -1715,8 +1730,10 @@ function maxDensitySegment(opts) {
       dOther = bestD1;
       dAnch = bestD2;
       coord += sideSign * lens[bestK];
+      rolled += lens[bestK];
     }
     for (let i = 0; i < nMarks; i++) visited[rollMarks[i]] = 0;
+    rolloutLenOut = rolled;
     return sum;
   };
 
@@ -1746,6 +1763,7 @@ function maxDensitySegment(opts) {
     let headDir = 8, tailDir = 8;    // 8 = no previous direction yet
     let headDir0 = 8, tailDir0 = 8;  // each leg's FIRST outward move (kink coupling)
     let len = 0, Rraw = 0, Rpen = 0;
+    let lastPen = 0, lastLen = 0; // final accepted step, for selection proration
 
     // Local anti-round-trip anchor for one side: the path cell ~lookM metres
     // BEHIND that end along the path (through the seed into the other leg if
@@ -1810,8 +1828,10 @@ function maxDensitySegment(opts) {
             if (haloF < 1 && haloHit(n, coordN)) pen *= haloF;
           }
           visited[n] = 1;
-          const score = pen + rollout(n, k, otherR, otherC, anchR, anchC, coordN, sideSign);
+          const rollSum = rollout(n, k, otherR, otherC, anchR, anchC, coordN, sideSign, targetLenM - len - lens[k]);
           visited[n] = 0;
+          // Rate, not total: penalized reward per metre of (step + lookahead).
+          const score = (pen + rollSum) / (lens[k] + rolloutLenOut);
           if (score > bestScore) {
             bestScore = score; bestN = n; bestK = k; bestBase = base; bestPen = pen; bestSide = side;
           }
@@ -1832,6 +1852,17 @@ function maxDensitySegment(opts) {
       stamp[bestN] = bestSide === 0 ? headLen : -tailLen; // signed along-path coord
       Rraw += bestBase;
       Rpen += bestPen;
+      lastPen = bestPen; lastLen = lens[bestK];
+    }
+
+    // Length-fair selection: every run stops at its FIRST step crossing the
+    // target, so a diagonal-rich path overshoots by up to one edge and banks
+    // extra reward (measured: a 45° slalom beat the straight spine purely on
+    // its +4.6% overshoot). Prorate the final step to exactly targetLenM for
+    // the selection score — the reported sums stay the full drawn line's.
+    let RpenSel = Rpen;
+    if (len > targetLenM && lastLen > 0) {
+      RpenSel = Rpen - lastPen * ((len - targetLenM) / lastLen);
     }
 
     // Straightness ρ = chord / length — the length-weighted circular mean
@@ -1841,7 +1872,7 @@ function maxDensitySegment(opts) {
     // so among the seeds a low-circular-spread (straighter) run wins ties.
     const chord = distM((headEnd / W) | 0, headEnd % W, (tailEnd / W) | 0, tailEnd % W);
     const rho = len > 0 ? chord / len : 0;
-    const Rsel = eExp > 0 ? Rpen * Math.pow(Math.max(rho, 1e-6), eExp) : Rpen;
+    const Rsel = eExp > 0 ? RpenSel * Math.pow(Math.max(rho, 1e-6), eExp) : RpenSel;
 
     // Prefer runs that reached (≈) the target; among those, max SELECTION
     // score (penalized reward × straightness weight) — the raw integral is

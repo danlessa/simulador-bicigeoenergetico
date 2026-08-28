@@ -663,6 +663,14 @@
 //              traversal). Seed selection weights reward × ρ^exp, ρ =
 //              chord/length = the circular mean resultant of the step
 //              headings (1 − circular variance), reported in the result.
+//              Search-quality fixes (all measured on enumerable fields):
+//              lookahead capped at the remaining length budget, greedy
+//              choice by reward PER METRE (per step, diagonals yield 41%
+//              more d̄·len — the actual slalom driver), and seed selection
+//              prorating the final step to the exact target (stopping at
+//              the first crossing step gave diagonal-rich paths +4.6%).
+//              Raising seeds/lookahead beyond 24×12 measured ≤ 0.7% effect
+//              at ~linear cost — deliberately NOT knobs.
 //              Fuchsia line with dark casing + fitBounds on result;
 //              geographic DEMs only (like all routes). Display/analysis
 //              only — engines, backend parity, bundles untouched.
