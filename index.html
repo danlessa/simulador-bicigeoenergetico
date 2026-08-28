@@ -1843,6 +1843,15 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v76</strong> — 2026-08-28<br/>
+              <strong>Dois consertos.</strong> O knob "nº de segmentos"
+              ficava limitado a 10 por um clamp esquecido no app.js (o
+              worker e o input já diziam 100). E os limites automáticos por
+              percentil (p90 das passagens, p80 da energia…) agora são
+              determinísticos: a amostragem-reservatório usava
+              <code>Math.random</code> e cada re-render dava um "auto"
+              ligeiramente diferente — agora primeiro render, "Atualizar
+              estilo" e "Reset" mostram exatamente o mesmo número.</p>
               <p><strong>v75</strong> — 2026-08-28<br/>
               <strong>Segmentos consecutivos não-sobrepostos (3C.c).</strong>
               Novo knob "nº de segmentos" (1–100): a cada segmento encontrado,

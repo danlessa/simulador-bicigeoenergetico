@@ -691,7 +691,17 @@
 //              case; per-start scratch is generation-stamped — plain fills
 //              would pay ~20 GB of writes at 100 segments); an exhausted
 //              field stops early with fewer segments.
-const VERSION  = "v75";
+//   v75 → v76: Two fixes. (1) The "nº de segmentos" knob was silently
+//              clamped to 10 in app.js's runMaxseg sanitiser — the v75 cap
+//              raise updated the worker (100) and the input max but missed
+//              this clamp, so the worker never received more than 10.
+//              (2) Percentile auto-bounds are now DETERMINISTIC: the three
+//              reservoir samplers (field, dual-passes, relief) drew their
+//              100k-cell sample with Math.random, so "auto = p90"/p80/p10
+//              drifted slightly on every re-render — first render, Refresh
+//              style, and range Reset each showed a different number.
+//              Fixed-seed RNG: same field + options → bit-identical bounds.
+const VERSION  = "v76";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

@@ -8594,8 +8594,10 @@ function runMaxseg() {
     ? targetLenM / 8
     : Math.max(0, lookKm) * 1000;
   // Consecutive non-overlapping segments (worker peels a tube per segment).
+  // Clamp must match the worker's MAXSEG_MAX_SEGMENTS (v75 shipped with this
+  // still at 10 while the worker + input said 100 — the knob silently capped).
   const nsegRaw = parseInt(document.getElementById("maxseg-nseg")?.value, 10);
-  const nSegments = Number.isFinite(nsegRaw) ? Math.min(10, Math.max(1, nsegRaw)) : 1;
+  const nSegments = Number.isFinite(nsegRaw) ? Math.min(100, Math.max(1, nsegRaw)) : 1;
 
   const minCellM = Math.min(dxM, dyM);
   const pick = maxsegPickFactor(H, W, minCellM, targetLenM);
@@ -9010,6 +9012,23 @@ function passesAsDensity(field, W, H) {
   return out;
 }
 
+// Deterministic RNG for the percentile reservoir samplers below. The auto
+// bounds ("auto = p90" etc.) must be IDENTICAL across re-renders of the same
+// field — with Math.random every render drew a different 100k-cell sample, so
+// the first render, a style refresh, and a range reset each showed slightly
+// different "auto" numbers. Fixed-seed mulberry32: same field + options →
+// bit-identical bounds; statistically equivalent to Math.random for sampling.
+function reservoirRng() {
+  let a = 0x9e3779b9;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function renderFieldToDataURL(field, W, H, opts) {
   const N = W * H;
   if (opts.densityNormalize) field = passesAsDensity(field, W, H);
@@ -9030,6 +9049,7 @@ function renderFieldToDataURL(field, W, H, opts) {
     // of N. Same pattern as renderReliefToDataURL.
     const SAMPLE_CAP = 100_000;
     const samples = new Float32Array(SAMPLE_CAP);
+    const rand = reservoirRng(); // deterministic: auto bounds stable across re-renders
     let collected = 0;
     let seen = 0;
     for (let i = 0; i < N; i++) {
@@ -9038,7 +9058,7 @@ function renderFieldToDataURL(field, W, H, opts) {
       if (collected < SAMPLE_CAP) {
         samples[collected++] = v;
       } else {
-        const j = Math.floor(Math.random() * (seen + 1));
+        const j = Math.floor(rand() * (seen + 1));
         if (j < SAMPLE_CAP) samples[j] = v;
       }
       seen++;
@@ -9202,6 +9222,7 @@ function renderDualPassesToDataURL(constrained, unconstrained, W, H, opts) {
   // Shared auto bounds: reservoir-sample positive cells from both fields.
   const SAMPLE_CAP = 100_000;
   const samples = new Float32Array(SAMPLE_CAP);
+  const rand = reservoirRng(); // deterministic: auto bounds stable across re-renders
   let collected = 0, seen = 0;
   for (const f of [a, b]) {
     for (let i = 0; i < N; i++) {
@@ -9209,7 +9230,7 @@ function renderDualPassesToDataURL(constrained, unconstrained, W, H, opts) {
       if (!Number.isFinite(v) || v <= 0) continue;
       if (collected < SAMPLE_CAP) samples[collected++] = v;
       else {
-        const j = Math.floor(Math.random() * (seen + 1));
+        const j = Math.floor(rand() * (seen + 1));
         if (j < SAMPLE_CAP) samples[j] = v;
       }
       seen++;
@@ -9363,6 +9384,7 @@ function renderReliefToDataURL(dem, slope) {
   // ---- Reservoir-sample valid (height, slope) pairs for percentiles --
   const eSamples = new Float32Array(RELIEF_PERCENTILE_SAMPLES);
   const sSamples = new Float32Array(RELIEF_PERCENTILE_SAMPLES);
+  const rand = reservoirRng(); // deterministic: auto bounds stable across re-renders
   let collected = 0;
   let seen = 0; // count of valid cells visited
   for (let i = 0; i < N; i++) {
@@ -9374,7 +9396,7 @@ function renderReliefToDataURL(dem, slope) {
     } else {
       // Standard reservoir step: replace position j (uniform in [0, seen])
       // with probability k/seen; here that simplifies to "pick a slot".
-      const j = Math.floor(Math.random() * (seen + 1));
+      const j = Math.floor(rand() * (seen + 1));
       if (j < RELIEF_PERCENTILE_SAMPLES) {
         eSamples[j] = height[i];
         sSamples[j] = slope[i];

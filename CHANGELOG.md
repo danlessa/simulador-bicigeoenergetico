@@ -9,6 +9,20 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v76 — 2026-08-28
+
+**Dois consertos.** (1) O knob "nº de segmentos" ficava silenciosamente
+limitado a 10: o aumento do teto no v75 atualizou o worker (100) e o `max`
+do input, mas esqueceu o clamp do sanitizador em `runMaxseg` — o worker
+nunca recebia mais que 10. (2) Os limites automáticos por percentil
+("auto = p90" das passagens, p80 da energia, p10…) agora são
+**determinísticos**: os três amostradores-reservatório (campo,
+passagens-duplas, relevo) sorteavam as 100 mil células com `Math.random`,
+então cada re-render calculava um p90 ligeiramente diferente — o primeiro
+render, o "Atualizar estilo" e o "Reset" da faixa mostravam números
+diferentes para o mesmo campo. RNG de semente fixa: mesmo campo + mesmas
+opções → limites bit-idênticos (estatisticamente equivalente).
+
 ## v75 — 2026-08-28
 
 **Segmentos consecutivos não-sobrepostos (3C.c).** Novo knob "nº de
