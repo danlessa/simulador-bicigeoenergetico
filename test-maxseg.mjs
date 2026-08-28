@@ -1,13 +1,16 @@
-// Regression test for the max-density segment DP (energy-worker.js kind
+// Regression test for the max-density segment search (energy-worker.js kind
 // "maxseg") — no DEM file needed. Drives the worker through its real
 // onmessage handler and asserts:
-//   1. exact equivalence with a brute-force walk enumeration on small grids
-//      (square AND anisotropic cells) — the DP's (cell, arrival-direction)
-//      state, length quantisation, and final-window rule are all pinned;
-//   2. the returned walk is valid: 8-neighbour steps, no immediate
-//      backtracking, allowed cells only, reported sum/length match the
-//      polyline's own recomputed values;
-//   3. a ridge field is followed (the intended use: corridor extraction);
+//   1. quality against EXACT self-avoiding-path enumeration on small grids
+//      (square AND anisotropic cells) — the heuristic must land within a
+//      pinned fraction of the true simple-path optimum, and the returned
+//      path must be valid (8-neighbour steps, allowed cells, NO revisits,
+//      reported sum/length matching the polyline's own recomputed values);
+//   2. a ridge field is followed end to end (the intended use);
+//   3. the SHUTTLE-DEGENERACY regression: on a realistic corridor field with
+//      a hot pinch point, the result must be a simple path that actually
+//      spans ~the target length — the old layered walk-DP collapsed onto a
+//      4 km stretch traversed 5× here (why the walk formulation was dropped);
 //   4. a blocked wall is never crossed;
 //   5. the app-side block-mean coarsening (mirror of app.js
 //      coarsenFieldForMaxseg — hand-kept-in-sync) handles masked/NaN cells
@@ -46,12 +49,9 @@ function assert(cond, label) {
 // Shared move tables — must match the worker's (classic 8, classic order).
 const DRS = [-1, -1, -1, 0, 0, 1, 1, 1];
 const DCS = [-1, 0, 1, -1, 1, -1, 0, 1];
-function moveTables(dx, dy) {
+function moveLens(dx, dy) {
   const diag = Math.hypot(dx, dy);
-  const lens = [diag, dy, diag, dx, dx, diag, dy, diag];
-  const u = Math.min(dx, dy) / 2;
-  const units = lens.map((l) => Math.max(1, Math.round(l / u)));
-  return { lens, units, maxU: Math.max(...units) };
+  return [diag, dy, diag, dx, dx, diag, dy, diag];
 }
 
 // Deterministic pseudo-random field (mulberry32).
@@ -66,49 +66,61 @@ function prng(seed) {
   };
 }
 
-// Brute-force reference: enumerate every walk (any allowed start, 8-neighbour
-// moves, no immediate backtrack) with total units in (K − maxU, K], maximising
-// the same trapezoid line integral, accumulated in the same walk order.
-function bruteBest(density, allowed, H, W, dx, dy, targetLenM) {
-  const { lens, units, maxU } = moveTables(dx, dy);
-  const u = Math.min(dx, dy) / 2;
-  const K = Math.round(targetLenM / u);
-  const lo = K - maxU;
+// Exact reference: enumerate every SIMPLE path (self-avoiding, any start)
+// whose length lands in [target, target + maxEdge] — the same stopping band
+// the search uses (it halts at the first step crossing the target) — plus
+// under-length dead ends, and return the max Σ d̄·len. Exponential; small
+// grids only.
+function exactBest(density, allowed, H, W, dx, dy, targetLenM) {
+  const lens = moveLens(dx, dy);
+  const maxEdge = Math.max(...lens);
   let best = -Infinity;
-  const step = (r, c, prevK, usedUnits, val) => {
-    if (usedUnits > lo && val > best) best = val;
+  const visited = new Uint8Array(H * W);
+  const step = (r, c, len, val) => {
+    if (len >= targetLenM) { if (val > best) best = val; return; }
+    let extended = false;
     for (let k = 0; k < 8; k++) {
-      if (prevK !== -1 && k === 7 - prevK) continue;
-      const nu = usedUnits + units[k];
-      if (nu > K) continue;
       const nr = r + DRS[k], nc = c + DCS[k];
       if (nr < 0 || nr >= H || nc < 0 || nc >= W) continue;
-      const a = r * W + c, b = nr * W + nc;
-      if (!allowed[b]) continue;
-      step(nr, nc, k, nu, val + 0.5 * (density[a] + density[b]) * lens[k]);
+      const n = nr * W + nc;
+      if (!allowed[n] || visited[n]) continue;
+      const nl = len + lens[k];
+      if (nl > targetLenM + maxEdge) continue;
+      extended = true;
+      visited[n] = 1;
+      step(nr, nc, nl, val + 0.5 * (density[r * W + c] + density[n]) * lens[k]);
+      visited[n] = 0;
     }
+    if (!extended && val > best) best = val; // dead end below target still counts
   };
   for (let r = 0; r < H; r++)
-    for (let c = 0; c < W; c++)
-      if (allowed[r * W + c]) step(r, c, -1, 0, 0);
+    for (let c = 0; c < W; c++) {
+      const i = r * W + c;
+      if (!allowed[i]) continue;
+      visited[i] = 1;
+      step(r, c, 0, 0);
+      visited[i] = 0;
+    }
   return best;
 }
 
-// Validity checks on a returned walk + recomputed sum/length.
-function auditWalk(m, density, allowed, H, W, dx, dy) {
-  const { lens } = moveTables(dx, dy);
+// Validity checks on a returned path + recomputed sum/length. `strict` now:
+// a max-density segment must be a SIMPLE path — no revisits at all.
+function auditPath(m, density, allowed, H, W, dx, dy) {
+  const lens = moveLens(dx, dy);
   const p = m.path;
   let ok = p.length >= 2;
+  const seen = new Set();
   let sum = 0, len = 0;
   for (let i = 0; i < p.length; i++) {
     if (!allowed[p[i]]) ok = false;
-    if (i >= 2 && p[i] === p[i - 2]) ok = false; // immediate backtrack
+    if (seen.has(p[i])) ok = false; // revisit → not a simple path
+    seen.add(p[i]);
     if (i === 0) continue;
     const ar = (p[i - 1] / W) | 0, ac = p[i - 1] - ar * W;
     const br = (p[i] / W) | 0, bc = p[i] - br * W;
-    const dr = br - ar, dc = bc - ac;
     let k = -1;
-    for (let j = 0; j < 8; j++) if (DRS[j] === dr && DCS[j] === dc) k = j;
+    for (let j = 0; j < 8; j++) if (DRS[j] === br - ar && DCS[j] === bc - ac) k = j;
     if (k === -1) { ok = false; continue; } // not an 8-neighbour step
     sum += 0.5 * (density[p[i - 1]] + density[p[i]]) * lens[k];
     len += lens[k];
@@ -116,21 +128,21 @@ function auditWalk(m, density, allowed, H, W, dx, dy) {
   return { ok, sum, len };
 }
 
-// ---- 1+2. brute-force equivalence + walk validity (square & anisotropic) ----
+// ---- 1. exact-enumeration quality + path validity (square & anisotropic) ----
 for (const { name, dx, dy } of [
   { name: "square cells (dx=dy=100)", dx: 100, dy: 100 },
   { name: "anisotropic cells (dx=60, dy=100)", dx: 60, dy: 100 },
 ]) {
-  console.log(`brute-force equivalence — ${name}`);
+  console.log(`exact-enumeration quality — ${name}`);
   const H = 6, W = 6, N = H * W;
   const rnd = prng(1234);
   const density = new Float32Array(N);
   for (let i = 0; i < N; i++) density[i] = rnd() * 10;
   const allowed = new Uint8Array(N).fill(1);
   allowed[8] = 0; allowed[27] = 0; // two holes
-  const targetLenM = 500; // K = 500/u — small enough to enumerate
+  const targetLenM = 500;
 
-  const ref = bruteBest(density, allowed, H, W, dx, dy, targetLenM);
+  const ref = exactBest(density, allowed, H, W, dx, dy, targetLenM);
   const { done, error } = run({
     kind: "maxseg",
     density: new Float32Array(density), allowed: new Uint8Array(allowed),
@@ -138,18 +150,23 @@ for (const { name, dx, dy } of [
   });
   assert(!error && done, `worker returned a result${error ? ` (error: ${error.message})` : ""}`);
   if (done) {
-    assert(Math.abs(done.sum - ref) <= 1e-9 * Math.max(1, Math.abs(ref)),
-      `DP optimum == brute force (DP ${done.sum.toFixed(6)}, brute ${ref.toFixed(6)})`);
-    const audit = auditWalk(done, density, allowed, H, W, dx, dy);
-    assert(audit.ok, "walk is valid (8-neighbour, allowed cells, no immediate backtrack)");
+    const ratio = done.sum / ref;
+    // Heuristic, not exact — but on a 6×6 field it must land close to the
+    // true simple-path optimum. Deterministic (fixed seed), so a pinned
+    // floor is safe; report the actual ratio for the log.
+    assert(ratio >= 0.9 && ratio <= 1.0 + 1e-9,
+      `within 10% of the exact simple-path optimum (ratio ${ratio.toFixed(3)}: ${done.sum.toFixed(1)} vs ${ref.toFixed(1)})`);
+    const audit = auditPath(done, density, allowed, H, W, dx, dy);
+    assert(audit.ok, "path is a valid SIMPLE path (8-neighbour, allowed, no revisits)");
     assert(Math.abs(audit.sum - done.sum) <= 1e-9 * Math.max(1, Math.abs(done.sum)),
-      "reported sum == the walk's own recomputed line integral");
+      "reported sum == the path's own recomputed line integral");
     assert(Math.abs(audit.len - done.lengthM) <= 1e-9 * Math.max(1, done.lengthM),
-      "reported length == the walk's own recomputed length");
+      "reported length == the path's own recomputed length");
+    assert(done.revisitFrac === 0, "revisitFrac is 0 (simple path by construction)");
   }
 }
 
-// ---- 3. ridge following ----
+// ---- 2. ridge following ----
 {
   console.log("ridge field is followed");
   const H = 40, W = 60, N = H * W, dx = 100, dy = 100;
@@ -164,10 +181,52 @@ for (const { name, dx, dy } of [
   if (done) {
     let onRidge = 0;
     for (const idx of done.path) if (((idx / W) | 0) === 20) onRidge++;
-    assert(onRidge / done.path.length >= 0.9, `walk stays on the ridge (${onRidge}/${done.path.length} cells)`);
-    assert(Math.abs(done.lengthM - targetLenM) <= 150,
+    assert(onRidge / done.path.length >= 0.9, `path stays on the ridge (${onRidge}/${done.path.length} cells)`);
+    assert(done.lengthM >= 0.95 * targetLenM && done.lengthM <= targetLenM + 150,
       `length ≈ target (${done.lengthM.toFixed(0)} m vs ${targetLenM} m)`);
-    assert(done.revisitFrac === 0, "no revisits on a ridge field");
+    const audit = auditPath(done, density, allowed, H, W, dx, dy);
+    assert(audit.ok, "simple path");
+  }
+}
+
+// ---- 3. SHUTTLE-DEGENERACY regression (why the walk-DP was replaced) ----
+// Realistic corridor field: a main corridor with a hot pinch point + two
+// weaker branches. The old layered walk-DP returned a 20 km walk collapsed
+// onto rows 100–101 × 4 km, revisitFrac 0.78 — invisible on the map. The
+// simple-path search must actually span the target length.
+{
+  console.log("shuttle-degeneracy regression (corridor field, 20 km)");
+  const H = 200, W = 300, N = H * W, dx = 100, dy = 100;
+  const density = new Float32Array(N);
+  for (let c = 0; c < W; c++) {
+    const peak = Math.exp(-((c - 150) ** 2) / (2 * 60 ** 2));
+    density[100 * W + c] += 10 * (0.3 + 0.7 * peak);
+  }
+  for (let r = 0; r < 100; r++) density[r * W + 150] += 3;
+  for (let r = 100; r < H; r++) density[r * W + (r - 100 + 60)] += 2;
+  const rnd = prng(42);
+  for (let i = 0; i < N; i++) density[i] += 0.05 * rnd();
+  const allowed = new Uint8Array(N).fill(1);
+  const targetLenM = 20000;
+  const { done, error } = run({ kind: "maxseg", density, allowed, H, W, dx, dy, targetLenM });
+  assert(!error && done, `worker returned a result${error ? ` (error: ${error.message})` : ""}`);
+  if (done) {
+    const audit = auditPath(done, density, allowed, H, W, dx, dy);
+    assert(audit.ok, "simple path (zero revisits — the old DP had 78%)");
+    assert(done.lengthM >= 0.95 * targetLenM,
+      `full target length reached (${(done.lengthM / 1000).toFixed(1)} km)`);
+    let rMin = 1e9, rMax = -1e9, cMin = 1e9, cMax = -1e9;
+    for (const idx of done.path) {
+      const r = (idx / W) | 0, c = idx - r * W;
+      if (r < rMin) rMin = r; if (r > rMax) rMax = r;
+      if (c < cMin) cMin = c; if (c > cMax) cMax = c;
+    }
+    const bboxKm = Math.hypot((rMax - rMin) * dy, (cMax - cMin) * dx) / 1000;
+    assert(bboxKm >= 10, `path actually spreads (bbox diagonal ${bboxKm.toFixed(1)} km ≥ 10 km; the old DP gave 4 km)`);
+    let onCorridor = 0;
+    for (const idx of done.path) if (density[idx] > 1) onCorridor++;
+    assert(onCorridor / done.path.length >= 0.8,
+      `path follows the corridors (${(100 * onCorridor / done.path.length).toFixed(0)}% of cells on corridor)`);
   }
 }
 
@@ -186,7 +245,7 @@ for (const { name, dx, dy } of [
     for (const idx of done.path) if (!allowed[idx]) crossed = true;
     const s0 = side(done.path[0]);
     for (const idx of done.path) if (side(idx) !== s0) crossed = true;
-    assert(!crossed, "walk stays on one side of the wall");
+    assert(!crossed, "path stays on one side of the wall");
   }
 }
 
@@ -245,9 +304,9 @@ function coarsenFieldForMaxseg(field, mask, H, W, f) {
   const { done, error } = run({
     kind: "maxseg",
     density: new Float32Array(H * W).fill(1), allowed: new Uint8Array(H * W).fill(1),
-    H, W, dx: 100, dy: 100, targetLenM: 300, // K = 6 < 8
+    H, W, dx: 100, dy: 100, targetLenM: 300, // < 4 cells
   });
-  assert(!done && error && /too_short/.test(error.message), "K < 8 errors as too_short");
+  assert(!done && error && /too_short/.test(error.message), "target < 4 cells errors as too_short");
 }
 
 console.log(failures ? `\n${failures} FAILURE(S)` : "\nall ok");

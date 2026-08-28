@@ -17,35 +17,40 @@ densidade/passagens, o novo painel 3C.c encontra o trajeto contínuo de ~L km
 campo já calculado — a resposta pós-cálculo pra "qual corredor de 20 km
 concentra mais passagens?".
 
-- Novo `kind: "maxseg"` no `energy-worker.js`: DP em camadas sobre quanta de
-  comprimento (u = ½ da célula curta; aresta axial = 2, diagonal ≈ 3), com
-  estado (célula, direção de chegada) que proíbe o vaivém imediato — com
-  recompensa positiva, a DP por célula pura só ficaria quicando entre as duas
-  células mais quentes. Janela final de um quantum de aresta absorve a
-  quantização; o comprimento reportado é a soma métrica exata das arestas.
+- Novo `kind: "maxseg"` no `energy-worker.js`: o resultado é um caminho
+  **simples** (nunca repassa célula) por construção — busca gulosa
+  auto-evitante com partidas múltiplas (células de alta densidade bem
+  espaçadas), crescimento pelas duas pontas e lookahead guloso de 12 passos
+  por candidato. É o problema de *orienteering* (NP-difícil), então é uma
+  heurística honesta, sem garantia de ótimo global; `test-maxseg.mjs` pina a
+  qualidade contra enumeração exata de caminhos simples em grades pequenas
+  (≥ 90% do ótimo em campo aleatório — o pior caso; em campos de corredor,
+  o caso de uso, segue o cume por inteiro).
+- Uma DP **exata** em camadas sobre *passeios* (só o vaivém imediato
+  proibido) foi implementada primeiro e descartada: medido num campo de
+  corredores realista, o "segmento de 20 km" dela colapsava em 4 km do
+  trecho mais quente percorridos 5× (78% de células repassadas) — invisível
+  no mapa. O teste de regressão desse cenário agora exige caminho simples
+  espalhado no alvo inteiro.
 - O campo é **engrossado automaticamente** (média por bloco, células
-  mascaradas/não-finitas fora) até a tabela de pais da DP (N·8·K bytes) caber
-  em 192 MB — o teto de bytes também limita as operações, então a busca fica
-  na casa de segundos em qualquer DEM. DEMs pequenos rodam na resolução cheia.
-- Honestidade sobre o limite: é o problema de *orienteering* (NP-difícil) — a
-  DP acha o melhor **passeio**, não o melhor caminho simples. Laços maiores
-  que o vaivém continuam possíveis; o resultado reporta a fração de células
-  repassadas e a UI avisa quando ela passa de 2% ("a soma conta repetições").
-- Linha fúcsia no mapa (tooltip/popup com comprimento, densidade média e o
-  ×N sobre a média do campo, tamanho da célula engrossada); botão "Remover
-  segmento"; comprimento-alvo persistido. A análise usa o canal de passagens
-  exibido (cenário sem restrição incluso, após um compare) e a máscara de
-  terreno (nodata + água + barreiras) — deliberadamente NÃO a restrição de
-  rede: fora da rede a densidade é zero, então cruzar ali custa comprimento
-  sem recompensa e a própria DP evita.
+  mascaradas/não-finitas fora) até ≤ 4 M células — sem a tabela de pais da
+  DP, a resolução ficou muito mais fina (ex.: DTM-SP de 135 M células roda
+  a ~30 m em vez de ~175 m). DEMs pequenos rodam na resolução cheia.
+- Linha fúcsia **com contorno escuro** (o segmento passa exatamente pelas
+  células mais quentes do colormap, onde uma linha fina sumia) e o mapa
+  enquadra o resultado ao terminar (`fitBounds`). Tooltip/popup com
+  comprimento, densidade média e o ×N sobre a média do campo, tamanho da
+  célula engrossada; botão "Remover segmento"; comprimento-alvo persistido.
+- A análise usa o canal de passagens exibido (cenário sem restrição incluso,
+  após um compare) e a máscara de terreno (nodata + água + barreiras) —
+  deliberadamente NÃO a restrição de rede: fora da rede a densidade é zero,
+  então cruzar ali custa comprimento sem recompensa e a busca evita sozinha.
+  Como as demais rotas, só desenha em DEMs geográficos (lat/long) — num DEM
+  projetado a busca recusa com mensagem em vez de desenhar em lugar nenhum.
 - Camada de exibição/análise apenas: nunca recalcula o campo, não entra em
   bundles, e é limpa por `cancelActiveCompute()` junto com tudo que deriva do
   resultado/grade atuais. Motores de energia, paridade JS↔Rust e bundles
   intocados (`test-worker-pool.mjs` + `test-backend.mjs` verdes).
-- Novo `test-maxseg.mjs`: equivalência **exata** com enumeração por força
-  bruta (células quadradas e anisotrópicas), validade do passeio, seguimento
-  de cume, respeito à máscara, espelho do engrossamento e o guard
-  `too_short`.
 
 ## v73 — 2026-08-25
 

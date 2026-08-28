@@ -1845,20 +1845,24 @@
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
               <p><strong>v74</strong> — 2026-08-27<br/>
               <strong>Segmento de densidade máxima (3C.c).</strong> Depois de
-              um cálculo de densidade/passagens, um novo painel encontra o
-              trajeto contínuo de ~L km (padrão 20) que maximiza a soma de
-              densidade (∑ densidade·metro): DP em camadas sobre o campo
-              engrossado automaticamente (média por bloco, fator escolhido pra
-              caber num teto fixo de memória), com estado (célula, direção de
-              chegada) que proíbe o vaivém imediato. A linha (fúcsia) mostra
-              comprimento, densidade média vs a média do campo e o tamanho da
-              célula engrossada; um aviso aparece se o trajeto repassa células
-              (é o problema de <em>orienteering</em>, NP-difícil — a DP acha o
-              melhor passeio, não o melhor caminho simples). Só análise/
-              exibição: nunca recalcula o campo, e some quando o resultado é
-              invalidado. Novo <code>kind: "maxseg"</code> no worker +
-              <code>test-maxseg.mjs</code> (equivalência exata com força bruta);
-              motores e paridade com o backend intocados.</p>
+              um cálculo de densidade/passagens, um novo painel encontra um
+              caminho contínuo <em>simples</em> (que não se cruza) de ~L km
+              (padrão 20) maximizando a soma de densidade (∑ densidade·metro).
+              É o problema de <em>orienteering</em> (NP-difícil), então a
+              busca é heurística: partidas múltiplas em células quentes bem
+              espaçadas, crescimento auto-evitante pelas duas pontas e
+              lookahead guloso, sobre o campo engrossado automaticamente
+              (média por bloco, ≤ 4 M células) — uma DP exata sobre
+              <em>passeios</em> foi testada e descartada (degenerava em
+              vaivém sobre o trecho mais quente). Linha fúcsia com contorno
+              escuro, mapa enquadra o resultado; tooltip com comprimento,
+              densidade média (×N da média do campo) e célula efetiva. Só
+              análise/exibição, DEMs geográficos: nunca recalcula o campo, e
+              some quando o resultado é invalidado. Novo
+              <code>kind: "maxseg"</code> no worker +
+              <code>test-maxseg.mjs</code> (qualidade pinada contra
+              enumeração exata de caminhos simples); motores e paridade com o
+              backend intocados.</p>
               <p><strong>v73</strong> — 2026-08-25<br/>
               <strong>Pulls FGB ~25× mais rápidos.</strong> Os FlatGeobufs
               (viário, água, pontes) agora vêm direto do GCS em vez do proxy

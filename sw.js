@@ -642,16 +642,19 @@
 //              clone for nothing). Sub-window parallelism was measured and
 //              REJECTED (2.5× slower — the reader already fetches feature
 //              batches concurrently; the bottleneck was the serving path).
-//   v73 → v74: Max-density segment (3C.c). Post-hoc layered DP (new worker
-//              kind "maxseg") that finds the continuous ~L km walk
-//              maximising Σ density·metre over the last passes/density
-//              field, on an automatically block-mean-coarsened grid sized
-//              to a fixed parent-table byte cap. (cell, arrival-direction)
-//              state forbids immediate backtracking; revisit warning for
-//              longer loops (orienteering is NP-hard — best walk, not best
-//              simple path). Display/analysis only — engines, backend
-//              parity, bundles untouched. test-maxseg.mjs pins the DP
-//              against exact brute-force enumeration.
+//   v73 → v74: Max-density segment (3C.c). New worker kind "maxseg": finds
+//              a continuous SIMPLE path of ~L km maximising Σ density·metre
+//              over the last passes/density field, on an automatically
+//              block-mean-coarsened grid (≤ 4 M cells). Orienteering is
+//              NP-hard, so the search is an honest heuristic — multi-start
+//              two-ended self-avoiding greedy with rollout lookahead; an
+//              exact layered DP over WALKS was tried first and dropped
+//              (measured: it shuttled 5× over the hottest 4 km stretch of
+//              a 20 km target). Fuchsia line with dark casing + fitBounds
+//              on result; geographic DEMs only (like all routes). Display/
+//              analysis only — engines, backend parity, bundles untouched.
+//              test-maxseg.mjs pins quality against exact simple-path
+//              enumeration and the shuttle regression.
 const VERSION  = "v74";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
