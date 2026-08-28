@@ -445,7 +445,19 @@ const STRINGS = {
   "group.result_density":        { pt: "3C. Densidade de trajetos", en: "3C. Trajectory density" },
   "group.result_density_net":    { pt: "3C.a. Densidade de trajetos na rede vetorial", en: "3C.a. Trajectory density on the vector network" },
   "group.result_density_terrain":{ pt: "3C.b. Densidade de trajetos no terreno", en: "3C.b. Trajectory density on the terrain" },
+  "group.result_maxseg":         { pt: "3C.c. Segmento de densidade máxima", en: "3C.c. Max-density segment" },
   "group.result_legend":         { pt: "3D. Legenda", en: "3D. Legend" },
+  // ---- Max-density segment (3C.c) ----------------------------------------
+  "maxseg.hint":         { pt: "Encontra o trajeto contínuo de ~L km que maximiza a soma de densidade (∑ densidade·metro) do último cálculo, numa grade engrossada automaticamente. Só o vaivém imediato é proibido — o trajeto pode se cruzar (um aviso indica quando).", en: "Finds the continuous ~L km walk that maximises the density sum (∑ density·metre) of the last run, on an automatically coarsened grid. Only immediate backtracking is forbidden — the walk can self-cross (a warning flags when it does)." },
+  "maxseg.len":          { pt: "comprimento alvo (km)", en: "target length (km)" },
+  "btn.maxseg_run":      { pt: "Buscar segmento", en: "Find segment" },
+  "btn.maxseg_clear":    { pt: "Remover segmento", en: "Remove segment" },
+  "maxseg.need_passes":  { pt: "calcule um campo de densidade/passagens primeiro", en: "compute a density/passes field first" },
+  "maxseg.too_short":    { pt: "comprimento alvo curto demais para este DEM (grade engrossada não o resolve)", en: "target length too short for this DEM (the coarsened grid can't resolve it)" },
+  "maxseg.progress":     { pt: "buscando segmento… {0}%", en: "finding segment… {0}%" },
+  "maxseg.result":       { pt: "L = {0} km · densidade média {1} ({2}× a média do campo) · células de ~{3} m", en: "L = {0} km · mean density {1} ({2}× the field mean) · ~{3} m cells" },
+  "maxseg.selfx":        { pt: "atenção: o trajeto repassa {0}% das células (a soma conta repetições)", en: "warning: the walk revisits {0}% of its cells (the sum counts repeats)" },
+  "maxseg.failed":       { pt: "busca falhou: {0}", en: "search failed: {0}" },
   "btn.refresh_style":   { pt: "Atualizar estilo", en: "Refresh style" },
   "result.empty":        { pt: "—", en: "—" },
   "layer.tiles":         { pt: "rmsampa-v2 tiles", en: "rmsampa-v2 tiles" },
@@ -599,6 +611,8 @@ const STRINGS = {
   "help.h.topn":         { pt: "Top-N rotas", en: "Top-N routes" },
   "help.p.topn":         { pt: "A* com penalização iterativa: encontra a rota ótima, multiplica o componente de custo por distância (<code>a_rol·d + a_aero·d</code>) das células reusadas por uma penalidade, repete N vezes. Modos de repulsão: <em>por célula</em> (penaliza só células reusadas, bordas duras), <em>linear</em> (1/(d+1), suave e ampla), <em>quadrática</em> (1/(d²+1), suave e local).", en: 'A* with iterative penalisation: find the optimal route, multiply the distance-cost component (<code>a_roll·d + a_aero·d</code>) of its cells by a penalty, repeat N times. Repulsion modes: <em>per-cell</em> (only re-used cells get penalised, sharp), <em>linear</em> (1/(d+1), soft and wide), <em>square</em> (1/(d²+1), soft and local).' },
   "help.h.density":      { pt: "Densidade multi-referência", en: "Multi-reference density" },
+  "help.h.maxseg":       { pt: "Segmento de densidade máxima", en: "Max-density segment" },
+  "help.p.maxseg":       { pt: "Análise pós-cálculo (3C.c): encontra o trajeto contínuo de ~L km que maximiza a soma de densidade (<code>∑ densidade·metro</code>) sobre o campo de passagens/densidade já calculado. O campo é engrossado automaticamente (média por bloco) até a DP em camadas caber num teto fixo de memória, e o estado (célula, direção de chegada) proíbe o vaivém imediato. É o problema de <em>orienteering</em> (NP-difícil): a DP acha o melhor <em>passeio</em>, não o melhor caminho simples — laços maiores são possíveis e um aviso aparece quando o trajeto repassa células (a soma conta repetições). Camada de exibição/análise apenas: nunca recalcula o campo, e a linha some quando o resultado que a originou é invalidado.", en: "Post-compute analysis (3C.c): finds the continuous ~L km walk that maximises the density sum (<code>∑ density·metre</code>) over the already-computed passes/density field. The field is coarsened automatically (block mean) until the layered DP fits a fixed memory cap, and the (cell, arrival-direction) state forbids immediate backtracking. This is the <em>orienteering</em> problem (NP-hard): the DP finds the best <em>walk</em>, not the best simple path — longer loops remain possible and a warning appears when the walk revisits cells (the sum counts repeats). Display/analysis layer only: it never recomputes the field, and the line is cleared when the result it derives from is invalidated." },
   "help.p.density":      { pt: "Para K pontos de referência: para cada um, computa as passagens, normaliza por <code>H·W</code>, soma; depois divide por <code>H·W</code> de novo. O resultado destaca corredores comuns entre múltiplas origens — útil para mapear \"onde a topografia força a passagem\". A camada de energia neste modo é a média por célula sobre as referências que conseguem alcançá-la. Perto da fronteira do orçamento (quando houver) ou da borda do DEM, o alcance de cada referência é cortado e as passagens ficam sistematicamente mais baixas ali; quando o orçamento (ou a borda) satura a maioria das referências, a densidade tende à uniformidade e as diferenças se achatam.", en: 'For K reference points: for each one, compute passes, normalise by <code>H·W</code>, sum; then divide by <code>H·W</code> again. The output highlights corridors common across multiple sources — useful for mapping "where topography forces traffic to converge". The energy layer in this mode is the per-cell mean across the references that can reach it. Near the budget frontier (when set) or the DEM border, each reference\'s reach is clipped and passes are systematically lower there; when the budget (or the border) saturates most references, density flattens toward uniform and differences wash out.' },
   "help.h.network":      { pt: "Restrição por rede vetorial (.gpkg)", en: "Vector network constraint (.gpkg)" },
   "help.p.network":      { pt: "Quando um arquivo de linhas vetoriais é carregado, toda a análise fica restrita às células tocadas por essas linhas — Dijkstra ignora qualquer célula fora da rede, e cliques no mapa \"agarram\" para a célula de rede mais próxima dentro do raio de snap configurado. O exemplo \"Viário RMSampa\" é dado © OpenStreetMap, licença ODbL.", en: 'When a vector-line file is loaded, the analysis is constrained to cells touched by those lines — Dijkstra ignores any cell outside the network, and map clicks "snap" to the nearest network cell within the configured snap radius. The "Viário RMSampa" example is data © OpenStreetMap, ODbL licence.' },
@@ -933,6 +947,7 @@ const PERSIST_IDS = [
   "passes-visible", "passes-opacity", "passes-vmin", "passes-vmax",
   "passes-gamma", "passes-mean-window", "passes-blend",
   "passes-vmin-b", "passes-vmax-b", "passes-gamma-b", "passes-mean-window-b",
+  "maxseg-len",
 ];
 // Restored controls whose change must re-fire dependent UI (sub-panel
 // show/hide, basemap swap). We dispatch a synthetic change after restoring so
@@ -2314,6 +2329,14 @@ const state = {
   // mode, unavailable } — see installKpiResult / kpiInvalidate. NOT part of
   // state.lastResult: style re-renders must never touch it.
   kpi: null,
+  // Max-density segment (3C.c): post-hoc DP over the last density/passes
+  // field. { worker (in-flight Worker or null), line (Leaflet polyline or
+  // null) }; maxsegGen invalidates stale worker messages (same pattern as
+  // computeGen). Cleared by cancelActiveCompute() — the result derives from
+  // the current grid + last result, so any event that invalidates those
+  // clears the segment too.
+  maxseg: null,
+  maxsegGen: 0,
   // Position in the quasi-random (Sobol/Halton) sequence used by "Place
   // random". Persists across clicks so each batch continues the sequence;
   // reset whenever the refs are cleared or the DEM changes.
@@ -2459,6 +2482,7 @@ function cancelActiveCompute() {
   state.computeGen++;
   for (const w of state.workers) w.terminate();
   state.workers = [];
+  clearMaxseg(); // derived from the result/grid this cancellation invalidates
   // A superseded cloud run must stop its keepalive traffic — /cloud/keepalive
   // extends this tab's short-lived orchestrator lease (LEASES[clientId]),
   // which is what protects a concurrent second browser's compute from a
@@ -8453,6 +8477,176 @@ for (const id of ["kpi-ek", "kpi-k", "kpi-ej", "kpi-j", "kpi-pop", "kpi-corr"]) 
 }
 document.getElementById("kpi-export-csv")?.addEventListener("click", kpiExportRefsCsv);
 document.getElementById("kpi-export-matrix")?.addEventListener("click", kpiExportMatrixCsv);
+
+// ---- Max-density segment (3C.c) --------------------------------------------
+// Post-hoc analysis over the LAST computed passes/density field: the layered
+// DP in energy-worker.js (kind "maxseg") finds the continuous ~L km walk that
+// maximises Σ densidade·metro. The field is block-averaged here first so the
+// DP's parent table fits a fixed byte budget — the factor is chosen
+// automatically (small DEMs run at full resolution). Display/analysis layer
+// only: never triggers a recompute, never enters a bundle, and is cleared by
+// cancelActiveCompute() alongside everything else derived from the current
+// grid + result.
+
+const MAXSEG_PARENT_BUDGET = 192 * 1024 * 1024; // < the worker's 256 MB guard
+const MAXSEG_COLOR = "#d946ef"; // fúcsia — distinta das rotas laranja/azul/ciano
+
+function clearMaxseg() {
+  state.maxsegGen++;
+  const ms = state.maxseg;
+  if (ms) {
+    if (ms.worker) ms.worker.terminate();
+    if (ms.line) map.removeLayer(ms.line);
+    state.maxseg = null;
+  }
+  const metaEl = document.getElementById("maxseg-meta");
+  if (metaEl) metaEl.textContent = "—";
+  const clr = document.getElementById("maxseg-clear");
+  if (clr) clr.style.display = "none";
+  const btn = document.getElementById("maxseg-run");
+  if (btn) btn.disabled = false;
+}
+
+// Smallest integer coarsening factor whose DP parent table (Hc·Wc·8·K bytes,
+// K length-quanta layers at u = f·minCell/2) fits the budget. The byte cap is
+// also the op cap (one state update per parent byte), so runs stay in the
+// couple-of-seconds range regardless of DEM size.
+function maxsegPickFactor(H, W, minCellM, targetLenM) {
+  for (let f = 1; f <= 8192; f++) {
+    const Hc = Math.ceil(H / f), Wc = Math.ceil(W / f);
+    const K = Math.round(targetLenM / (f * minCellM / 2));
+    if (Hc * Wc * 8 * K <= MAXSEG_PARENT_BUDGET) return { f, K };
+  }
+  return null;
+}
+
+// Block-mean coarsening: coarse cell = mean of its allowed, finite fine cells;
+// allowed iff ≥ 1 such cell. MIRRORED in test-maxseg.mjs (hand-kept-in-sync,
+// same rule as the test-water-raster.mjs mirrors).
+function coarsenFieldForMaxseg(field, mask, H, W, f) {
+  const Hc = Math.ceil(H / f), Wc = Math.ceil(W / f);
+  const sum = new Float64Array(Hc * Wc);
+  const cnt = new Int32Array(Hc * Wc);
+  for (let r = 0; r < H; r++) {
+    const rowBase = r * W;
+    const cBase = ((r / f) | 0) * Wc;
+    for (let c = 0; c < W; c++) {
+      if (!mask[rowBase + c]) continue;
+      const v = field[rowBase + c];
+      if (!Number.isFinite(v)) continue;
+      const ci = cBase + ((c / f) | 0);
+      sum[ci] += v;
+      cnt[ci]++;
+    }
+  }
+  const density = new Float32Array(Hc * Wc);
+  const allowed = new Uint8Array(Hc * Wc);
+  for (let i = 0; i < Hc * Wc; i++) {
+    if (cnt[i] > 0) { density[i] = sum[i] / cnt[i]; allowed[i] = 1; }
+  }
+  return { density, allowed, Hc, Wc };
+}
+
+function runMaxseg() {
+  const r = state.lastResult;
+  const metaEl = document.getElementById("maxseg-meta");
+  const say = (txt) => { if (metaEl) metaEl.textContent = txt; };
+  if (!state.dem || !r || !r.passes) { say(t("maxseg.need_passes")); return; }
+  clearMaxseg();
+  const gen = state.maxsegGen; // clearMaxseg just bumped it
+  const cgen = state.computeGen;
+
+  // Same channel the passes layer is showing (a compare run can display the
+  // unconstrained scenario) — mirrors rerenderCachedResult's selection.
+  const energySel = document.getElementById("energy-source")?.value || "constrained";
+  const field = (r.passesAlt && energySel === "unconstrained" && r.passesAlt.unconstrained)
+    ? r.passesAlt.unconstrained : r.passes;
+
+  const { H, W, dxM, dyM } = state.dem;
+  const km = parseFloat(document.getElementById("maxseg-len")?.value);
+  const targetLenM = (Number.isFinite(km) && km > 0 ? km : 20) * 1000;
+
+  const minCellM = Math.min(dxM, dyM);
+  const pick = maxsegPickFactor(H, W, minCellM, targetLenM);
+  if (!pick || pick.K < 8) { say(t("maxseg.too_short")); return; }
+  const f = pick.f;
+
+  // Terrain mask (nodata + water + drawn barriers) — deliberately NOT the
+  // network constraint: off-network cells carry zero density, so crossing
+  // them adds length without reward and the DP avoids them on its own.
+  const mask = buildComputeGrid({ maskOnly: true }).mask;
+  const { density, allowed, Hc, Wc } = coarsenFieldForMaxseg(field, mask, H, W, f);
+
+  // Field-wide mean over allowed coarse cells — the "×N of the field mean"
+  // readout (scale-invariant, so raw passes counts and normalised densities
+  // read the same).
+  let fSum = 0, fCnt = 0;
+  for (let i = 0; i < density.length; i++) if (allowed[i]) { fSum += density[i]; fCnt++; }
+  const fieldMean = fCnt ? fSum / fCnt : 0;
+
+  const w = new Worker(WORKER_URL);
+  state.maxseg = { worker: w, line: null };
+  const btn = document.getElementById("maxseg-run");
+  if (btn) btn.disabled = true;
+  const done = () => {
+    if (btn) btn.disabled = false;
+    w.terminate();
+    if (state.maxseg && state.maxseg.worker === w) state.maxseg.worker = null;
+  };
+  w.onmessage = (ev) => {
+    if (gen !== state.maxsegGen || cgen !== state.computeGen) return;
+    const m = ev.data;
+    if (m.kind === "progress") { say(t("maxseg.progress", Math.round(m.progress * 100))); return; }
+    if (m.kind === "error") { done(); say(t("maxseg.failed", m.message)); return; }
+    if (m.kind !== "maxseg-done") return;
+    done();
+    renderMaxseg(m, { f, Wc, fieldMean, minCellM });
+  };
+  w.onerror = (err) => {
+    if (gen !== state.maxsegGen) return;
+    done();
+    say(t("maxseg.failed", err?.message || "worker error"));
+  };
+  w.postMessage(
+    { kind: "maxseg", density, allowed, H: Hc, W: Wc, dx: dxM * f, dy: dyM * f, targetLenM },
+    [density.buffer, allowed.buffer],
+  );
+  say(t("maxseg.progress", 0));
+}
+
+function renderMaxseg(m, { f, Wc, fieldMean, minCellM }) {
+  const { H, W } = state.dem;
+  // Coarse flat indices → fine block-centre fractional cells → lat/lng.
+  const pts = [];
+  for (let i = 0; i < m.path.length; i++) {
+    const idx = m.path[i];
+    const cr = (idx / Wc) | 0, cc = idx - cr * Wc;
+    pts.push(cellFracToLatLng(Math.min(H, cr * f + f / 2), Math.min(W, cc * f + f / 2)));
+  }
+  const meanD = m.lengthM > 0 ? m.sum / m.lengthM : 0;
+  const ratio = fieldMean > 0 ? meanD / fieldMean : 0;
+  const label = t(
+    "maxseg.result",
+    (m.lengthM / 1000).toFixed(2),
+    meanD.toExponential(2),
+    ratio.toFixed(1),
+    Math.round(f * minCellM),
+  );
+  const line = L.polyline(pts, { color: MAXSEG_COLOR, weight: 4, opacity: 0.95, pane: "routesPane" });
+  line.bindTooltip(label, { sticky: true });
+  line.bindPopup(label);
+  line.addTo(map);
+  state.maxseg = { worker: null, line };
+  let txt = label;
+  if (m.revisitFrac > 0.02) txt += " · " + t("maxseg.selfx", Math.round(m.revisitFrac * 100));
+  const metaEl = document.getElementById("maxseg-meta");
+  if (metaEl) metaEl.textContent = txt;
+  const clr = document.getElementById("maxseg-clear");
+  if (clr) clr.style.display = "";
+}
+
+document.getElementById("maxseg-run")?.addEventListener("click", runMaxseg);
+document.getElementById("maxseg-clear")?.addEventListener("click", clearMaxseg);
 
 // Re-render the cached energy + passes overlays with the currently-selected
 // colormap. Called from renderResult (after a compute), from the colormap

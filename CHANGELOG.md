@@ -9,6 +9,44 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v74 — 2026-08-27
+
+**Segmento de densidade máxima (3C.c).** Depois de um cálculo de
+densidade/passagens, o novo painel 3C.c encontra o trajeto contínuo de ~L km
+(padrão 20 km) que maximiza a soma de densidade (∑ densidade·metro) sobre o
+campo já calculado — a resposta pós-cálculo pra "qual corredor de 20 km
+concentra mais passagens?".
+
+- Novo `kind: "maxseg"` no `energy-worker.js`: DP em camadas sobre quanta de
+  comprimento (u = ½ da célula curta; aresta axial = 2, diagonal ≈ 3), com
+  estado (célula, direção de chegada) que proíbe o vaivém imediato — com
+  recompensa positiva, a DP por célula pura só ficaria quicando entre as duas
+  células mais quentes. Janela final de um quantum de aresta absorve a
+  quantização; o comprimento reportado é a soma métrica exata das arestas.
+- O campo é **engrossado automaticamente** (média por bloco, células
+  mascaradas/não-finitas fora) até a tabela de pais da DP (N·8·K bytes) caber
+  em 192 MB — o teto de bytes também limita as operações, então a busca fica
+  na casa de segundos em qualquer DEM. DEMs pequenos rodam na resolução cheia.
+- Honestidade sobre o limite: é o problema de *orienteering* (NP-difícil) — a
+  DP acha o melhor **passeio**, não o melhor caminho simples. Laços maiores
+  que o vaivém continuam possíveis; o resultado reporta a fração de células
+  repassadas e a UI avisa quando ela passa de 2% ("a soma conta repetições").
+- Linha fúcsia no mapa (tooltip/popup com comprimento, densidade média e o
+  ×N sobre a média do campo, tamanho da célula engrossada); botão "Remover
+  segmento"; comprimento-alvo persistido. A análise usa o canal de passagens
+  exibido (cenário sem restrição incluso, após um compare) e a máscara de
+  terreno (nodata + água + barreiras) — deliberadamente NÃO a restrição de
+  rede: fora da rede a densidade é zero, então cruzar ali custa comprimento
+  sem recompensa e a própria DP evita.
+- Camada de exibição/análise apenas: nunca recalcula o campo, não entra em
+  bundles, e é limpa por `cancelActiveCompute()` junto com tudo que deriva do
+  resultado/grade atuais. Motores de energia, paridade JS↔Rust e bundles
+  intocados (`test-worker-pool.mjs` + `test-backend.mjs` verdes).
+- Novo `test-maxseg.mjs`: equivalência **exata** com enumeração por força
+  bruta (células quadradas e anisotrópicas), validade do passeio, seguimento
+  de cume, respeito à máscara, espelho do engrossamento e o guard
+  `too_short`.
+
 ## v73 — 2026-08-25
 
 **Pulls FGB ~25× mais rápidos.** Os três FlatGeobufs (viário 1B, água 1C,

@@ -1468,6 +1468,153 @@ function maxCostPathOfLength(opts) {
   };
 }
 
+// ------- Max-density segment (layered DP over length quanta) -------
+// Post-hoc analysis over a computed density/passes field: find the open walk of
+// ~target metric length that maximises the density line integral Σ d̄·len (d̄ =
+// trapezoid mean of the two endpoint cells per edge). Runs on a COARSENED grid
+// prepared by app.js (block-mean density; the app picks the factor so the
+// parent table fits the byte cap below) — display/analysis layer only, no
+// energy semantics, no backend counterpart.
+//
+// Formulation: layers = metric length quantised to u = min(dx,dy)/2, so an
+// axis edge advances 2 units and a (square-cell) diagonal 3 (each edge's true
+// length keeps its exact value in the reported total — quantisation only buckets
+// the layers). State = (cell, arrival direction), which forbids immediate
+// backtracking (A→B→A): with a POSITIVE reward the plain per-cell DP of
+// maxCostPathOfLength would just ping-pong across the two hottest cells.
+// Longer cycles (e.g. laps around one hot block) remain representable — the
+// result reports revisitFrac so the app can warn when the "segment" is
+// substantially self-crossing (the honest limit of this DP; a true simple-path
+// constraint is NP-hard — this is the orienteering problem).
+//
+// Per layer each cell needs only its predecessors' best/second-best over
+// arrival directions (excluding at most the one forbidden direction), so the
+// rolling window keeps aggregate slices, not full per-direction values.
+// Parent storage (one byte per state per layer) dominates: N·8·K bytes.
+
+const MAXSEG_MAX_PARENT_BYTES = 256 * 1024 * 1024;
+
+function maxDensitySegment(opts) {
+  const {
+    density, allowed, H, W, dx, dy, targetLenM,
+    progressBase = 0, progressScale = 1,
+  } = opts;
+  const N = H * W;
+
+  const drs = [-1, -1, -1, 0, 0, 1, 1, 1];
+  const dcs = [-1, 0, 1, -1, 1, -1, 0, 1];
+  const diag = Math.hypot(dx, dy);
+  const lens = [diag, dy, diag, dx, dx, diag, dy, diag];
+
+  // Length quantum: half the short cell axis, so the axis moves land on exact
+  // buckets and the diagonal's rounding error stays ≤ ~6%.
+  const u = Math.min(dx, dy) / 2;
+  const units = lens.map((l) => Math.max(1, Math.round(l / u)));
+  const maxU = Math.max(...units);
+  const K = Math.round(targetLenM / u);
+  if (!(K >= 8)) return { error: "too_short" };
+  if (N * 8 * K > MAXSEG_MAX_PARENT_BYTES) {
+    return { error: `memory_cap (K·N·8 = ${(N * 8 * K / 1024 / 1024).toFixed(0)} MB > ${MAXSEG_MAX_PARENT_BYTES / 1024 / 1024} MB)` };
+  }
+
+  // Rolling window of per-layer aggregates (flat, slice stride N). argBest = 8
+  // marks the virtual "start" state (any first move allowed); 255 = unreached.
+  const R = maxU + 1;
+  const bestVal = new Float64Array(R * N);
+  const secondVal = new Float64Array(R * N);
+  const bestArg = new Uint8Array(R * N);
+  const secondArg = new Uint8Array(R * N);
+  for (let i = 0; i < N; i++) {
+    const seed = allowed[i] ? 0 : -Infinity;   // every allowed cell is a start
+    bestVal[i] = seed; secondVal[i] = seed;
+    bestArg[i] = 8; secondArg[i] = 8;
+  }
+
+  // parent[(t−1)·N·8 + v·8 + k] = the predecessor STATE's arrival direction
+  // (its own k; 8 = the seed) for state (t, v, arrived-via-k).
+  const parent = new Uint8Array(N * 8 * K).fill(255);
+
+  // Best endpoint state within one edge quantum of the target length.
+  let gBest = -Infinity, gT = -1, gV = -1, gK = -1;
+  const tWindowLo = K - maxU; // states with t in (K−maxU, K] qualify
+
+  for (let t = 1; t <= K; t++) {
+    const cur = (t % R) * N;
+    const pBase = (t - 1) * N * 8;
+    for (let r = 0; r < H; r++) {
+      const rowBase = r * W;
+      for (let c = 0; c < W; c++) {
+        const v = rowBase + c;
+        if (!allowed[v]) { bestVal[cur + v] = -Infinity; secondVal[cur + v] = -Infinity; bestArg[cur + v] = 255; secondArg[cur + v] = 255; continue; }
+        const dv = density[v];
+        let b1 = -Infinity, a1 = 255, b2 = -Infinity, a2 = 255;
+        for (let k = 0; k < 8; k++) {
+          const tp = t - units[k];
+          if (tp < 0) continue;
+          const nr = r - drs[k], nc = c - dcs[k];
+          if (nr < 0 || nr >= H || nc < 0 || nc >= W) continue;
+          const n = nr * W + nc;
+          if (!allowed[n]) continue;
+          const s = (tp % R) * N;
+          // Best predecessor value at n excluding the immediate-backtrack
+          // direction (arriving at n via 7−k means its previous cell IS v).
+          const fb = 7 - k;
+          let pv, pq;
+          if (bestArg[s + n] !== fb) { pv = bestVal[s + n]; pq = bestArg[s + n]; }
+          else { pv = secondVal[s + n]; pq = secondArg[s + n]; }
+          if (pv === -Infinity || pq === 255) continue;
+          const cand = pv + 0.5 * (density[n] + dv) * lens[k];
+          parent[pBase + v * 8 + k] = pq;
+          if (cand > b1) { b2 = b1; a2 = a1; b1 = cand; a1 = k; }
+          else if (cand > b2) { b2 = cand; a2 = k; }
+          if (t > tWindowLo && cand > gBest) { gBest = cand; gT = t; gV = v; gK = k; }
+        }
+        bestVal[cur + v] = b1; secondVal[cur + v] = b2;
+        bestArg[cur + v] = a1; secondArg[cur + v] = a2;
+      }
+    }
+    if (t === K || (t & 7) === 0) {
+      postMessage({ kind: "progress", progress: progressBase + progressScale * (t / K) });
+    }
+  }
+
+  if (!Number.isFinite(gBest)) return { error: "unreachable" };
+
+  // Backtrack from the best endpoint state. Each step's parent byte is that
+  // predecessor state's own arrival direction, so the walk is (t, v, k) →
+  // (t − units[k], v − offset(k), parentByte) until the seed sentinel (8).
+  const revPath = [gV];
+  let v = gV, k = gK, t = gT;
+  let lenM = 0;
+  while (k !== 8) {
+    const pq = parent[(t - 1) * N * 8 + v * 8 + k];
+    if (pq === 255) return { error: "backtrack_fail" };
+    const r = (v / W) | 0, c = v - r * W;
+    lenM += lens[k];
+    t -= units[k];
+    v = (r - drs[k]) * W + (c - dcs[k]);
+    k = pq;
+    revPath.push(v);
+  }
+  revPath.reverse();
+
+  // Self-crossing fraction — the walk may lawfully revisit cells (see header);
+  // the app surfaces a warning when this is substantial.
+  const seen = new Uint8Array(N);
+  let revisits = 0;
+  for (let i = 0; i < revPath.length; i++) {
+    const cell = revPath[i];
+    if (seen[cell]) revisits++; else seen[cell] = 1;
+  }
+
+  return {
+    path: Int32Array.from(revPath),
+    sum: gBest,                       // Σ d̄·len over the walk (density · metres)
+    lengthM: lenM,                    // true metric length (unquantised edge sum)
+    revisitFrac: revisits / revPath.length,
+  };
+}
+
 // ------- Worker message handler -------
 // Vector-network graph routing lives in a sibling module (shared with the node
 // test). importScripts only exists in a real Worker; in the node test harness
@@ -1522,6 +1669,25 @@ self.onmessage = (ev) => {
         buf = boxSmoothPreserveNetwork(buf, msg.networkMask, msg.mask, msg.H, msg.W);
       }
       postMessage({ kind: "smooth-done", energy: buf }, [buf.buffer]);
+    } catch (err) {
+      postMessage({ kind: "error", message: err.message });
+    }
+    return;
+  }
+
+  // Max-density segment: post-hoc layered DP over a coarsened density field
+  // (see maxDensitySegment). Standalone job like "interp" — no grid/energy
+  // state involved, so it never touches the run paths or backend parity.
+  if (msg.kind === "maxseg") {
+    try {
+      const res = maxDensitySegment(msg);
+      if (res.error) postMessage({ kind: "error", message: res.error });
+      else {
+        postMessage(
+          { kind: "maxseg-done", path: res.path, sum: res.sum, lengthM: res.lengthM, revisitFrac: res.revisitFrac },
+          [res.path.buffer],
+        );
+      }
     } catch (err) {
       postMessage({ kind: "error", message: err.message });
     }

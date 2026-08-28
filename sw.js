@@ -642,7 +642,17 @@
 //              clone for nothing). Sub-window parallelism was measured and
 //              REJECTED (2.5× slower — the reader already fetches feature
 //              batches concurrently; the bottleneck was the serving path).
-const VERSION  = "v73";
+//   v73 → v74: Max-density segment (3C.c). Post-hoc layered DP (new worker
+//              kind "maxseg") that finds the continuous ~L km walk
+//              maximising Σ density·metre over the last passes/density
+//              field, on an automatically block-mean-coarsened grid sized
+//              to a fixed parent-table byte cap. (cell, arrival-direction)
+//              state forbids immediate backtracking; revisit warning for
+//              longer loops (orienteering is NP-hard — best walk, not best
+//              simple path). Display/analysis only — engines, backend
+//              parity, bundles untouched. test-maxseg.mjs pins the DP
+//              against exact brute-force enumeration.
+const VERSION  = "v74";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 

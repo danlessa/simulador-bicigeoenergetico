@@ -1815,6 +1815,9 @@
           <p data-i18n-html="help.p.ref_file"></p>
           <p data-i18n-html="help.p.ref_direction"></p>
 
+          <h4 data-i18n="help.h.maxseg">Segmento de densidade máxima</h4>
+          <p data-i18n-html="help.p.maxseg"></p>
+
           <h4 data-i18n="help.h.network">Restrição por rede vetorial (.gpkg)</h4>
           <p data-i18n-html="help.p.network"></p>
           <p data-i18n-html="help.p.network_extra"></p>
@@ -1840,6 +1843,22 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v74</strong> — 2026-08-27<br/>
+              <strong>Segmento de densidade máxima (3C.c).</strong> Depois de
+              um cálculo de densidade/passagens, um novo painel encontra o
+              trajeto contínuo de ~L km (padrão 20) que maximiza a soma de
+              densidade (∑ densidade·metro): DP em camadas sobre o campo
+              engrossado automaticamente (média por bloco, fator escolhido pra
+              caber num teto fixo de memória), com estado (célula, direção de
+              chegada) que proíbe o vaivém imediato. A linha (fúcsia) mostra
+              comprimento, densidade média vs a média do campo e o tamanho da
+              célula engrossada; um aviso aparece se o trajeto repassa células
+              (é o problema de <em>orienteering</em>, NP-difícil — a DP acha o
+              melhor passeio, não o melhor caminho simples). Só análise/
+              exibição: nunca recalcula o campo, e some quando o resultado é
+              invalidado. Novo <code>kind: "maxseg"</code> no worker +
+              <code>test-maxseg.mjs</code> (equivalência exata com força bruta);
+              motores e paridade com o backend intocados.</p>
               <p><strong>v73</strong> — 2026-08-25<br/>
               <strong>Pulls FGB ~25× mais rápidos.</strong> Os FlatGeobufs
               (viário, água, pontes) agora vêm direto do GCS em vez do proxy
@@ -2729,6 +2748,23 @@
           <option value="overlay"      data-i18n="blend.overlay">overlay</option>
           <option value="energy"       data-i18n="blend.energy">energy color (passes = opacity)</option>
         </select>
+
+        <!-- 3C.c. Max-density segment: post-hoc layered DP over the computed
+             passes/density field (energy-worker.js kind "maxseg"). Analysis/
+             display only — never recomputes the field. -->
+        <details class="group" id="maxseg-group">
+          <summary data-i18n="group.result_maxseg">3C.c. Segmento de densidade máxima</summary>
+          <div class="meta" data-i18n="maxseg.hint" style="margin-bottom: 6px;">—</div>
+          <div class="row">
+            <div>
+              <label for="maxseg-len" data-i18n="maxseg.len">comprimento alvo (km)</label>
+              <input type="number" id="maxseg-len" value="20" min="0.5" step="any" />
+            </div>
+          </div>
+          <button type="button" class="secondary" id="maxseg-run" data-i18n="btn.maxseg_run" style="margin-top: 4px;">Buscar segmento</button>
+          <button type="button" class="secondary" id="maxseg-clear" data-i18n="btn.maxseg_clear" style="margin-top: 4px; display: none;">Remover segmento</button>
+          <div class="meta" id="maxseg-meta" style="margin-top: 4px;">—</div>
+        </details>
       </details>
 
       <!-- 3D. Legend -->
