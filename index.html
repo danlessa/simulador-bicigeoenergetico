@@ -1843,6 +1843,12 @@
           <details id="changelog" style="margin-top: 12px;">
             <summary data-i18n="help.h.changelog" style="cursor: pointer; font-weight: 600;">Changelog</summary>
             <div style="font-size: 11px; line-height: 1.5; margin-top: 6px;">
+              <p><strong>v77</strong> — 2026-08-28<br/>
+              <strong>Cores dos segmentos viram dado (3C.c).</strong> Cada
+              segmento é colorido pela sua densidade média relativa à média
+              do campo, proporcional ao melhor da rodada, numa paleta CET
+              selecionável (padrão CET-R1). Trocar a paleta recolore na
+              hora, sem recalcular; os ×N exatos seguem nos tooltips.</p>
               <p><strong>v76</strong> — 2026-08-28<br/>
               <strong>Dois consertos.</strong> O knob "nº de segmentos"
               ficava limitado a 10 por um clamp esquecido no app.js (o
@@ -2819,6 +2825,8 @@
               <input type="number" id="maxseg-elong" value="0.5" min="0" max="4" step="0.1" data-i18n-title="maxseg.elong.title" />
             </div>
           </div>
+          <label for="maxseg-colormap" data-i18n="maxseg.cmap" data-i18n-title="maxseg.cmap.title">paleta (densidade relativa ao campo)</label>
+          <select id="maxseg-colormap" data-i18n-title="maxseg.cmap.title"></select>
           <button type="button" class="secondary" id="maxseg-run" data-i18n="btn.maxseg_run" style="margin-top: 4px;">Buscar segmento</button>
           <button type="button" class="secondary" id="maxseg-clear" data-i18n="btn.maxseg_clear" style="margin-top: 4px; display: none;">Remover segmento</button>
           <div class="meta" id="maxseg-meta" style="margin-top: 4px;">—</div>

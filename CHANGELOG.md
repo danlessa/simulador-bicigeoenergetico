@@ -9,6 +9,18 @@ Backfill note: v1–v11 entries were reconstructed from the `sw.js` version
 history and git log on 2026-06-12; v4–v10 shipped between 2026-05-08 and
 2026-05-13 without individually recorded dates.
 
+## v77 — 2026-08-28
+
+**Cores dos segmentos viram dado (3C.c).** Em vez de cores arbitrárias por
+posto, cada segmento agora é colorido pela sua densidade média relativa à
+média do campo, proporcional ao melhor segmento da rodada
+(t = razão ÷ razão máxima — o melhor fica no topo da paleta), amostrada de
+uma paleta CET selecionável no painel (padrão **CET-R1**, arco-íris
+perceptualmente uniforme). Trocar a paleta recolore as linhas na hora
+(camada de estilo apenas — sem recomputar, mesma regra do colormap das
+rotas); os números exatos (×N da média do campo) seguem no tooltip e na
+linha de resultado.
+
 ## v76 — 2026-08-28
 
 **Dois consertos.** (1) O knob "nº de segmentos" ficava silenciosamente

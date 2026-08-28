@@ -461,6 +461,8 @@ const STRINGS = {
   "maxseg.turn.title":   { pt: "Penaliza mudanças de direção passo a passo: cada passo é pontuado × ((1+cos Δθ)/2)^expoente contra a direção anterior. 0 desliga; maior = trajeto mais suave. Só guia a busca — a soma exibida é sempre a integral bruta da linha.", en: "Penalises step-by-step direction changes: each step is scored × ((1+cos Δθ)/2)^exponent against the previous direction. 0 disables; higher = smoother path. Steers the search only — the displayed sum is always the line's raw integral." },
   "maxseg.elong":        { pt: "retidão / anti-ida-e-volta (expoente)", en: "straightness / anti-round-trip (exponent)" },
   "maxseg.elong.title":  { pt: "Penaliza formas de ida-e-volta e incentiva segmentos alongados: cada passo é pontuado pela variação da distância às duas referências (a outra ponta do trajeto e uma âncora na janela local), e entre as sementes vence a corrida com maior recompensa × retidão^expoente (retidão = corda/comprimento = 1 − variância circular dos rumos). 0 desliga.", en: "Penalises round-trip shapes and rewards elongated segments: each step is scored by its change of distance to two references (the path's other end and a trailing anchor within the local window), and across seeds the run with the highest reward × straightness^exponent wins (straightness = chord/length = 1 − circular variance of the headings). 0 disables." },
+  "maxseg.cmap":         { pt: "paleta (densidade relativa ao campo)", en: "palette (density relative to the field)" },
+  "maxseg.cmap.title":   { pt: "Cor de cada segmento pela sua densidade média relativa à média do campo, proporcional ao melhor segmento da rodada (t = razão ÷ razão máxima; o melhor fica no topo da paleta). Trocar a paleta recolore na hora, sem recalcular. Os números exatos (×N da média) ficam no tooltip e na linha de resultado.", en: "Each segment coloured by its mean density relative to the field mean, proportional to the run's best segment (t = ratio ÷ max ratio; the best sits at the palette top). Changing the palette recolours instantly, no recompute. The exact numbers (×N of the mean) are in the tooltip and the result line." },
   "maxseg.nseg":         { pt: "nº de segmentos", en: "number of segments" },
   "maxseg.nseg.title":   { pt: "Segmentos consecutivos não-sobrepostos (até 100): depois de cada segmento encontrado, a densidade é zerada num tubo de ~2 células ao redor dele e a busca roda de novo no que sobrou. As células continuam transitáveis — um segmento posterior pode CRUZAR um anterior perpendicular (só não coleta nada ali), mas não pode repassar o mesmo corredor nem a pista vizinha. O custo é ~linear no número de segmentos; num campo sem densidade restante a busca para antes (retorna menos segmentos). Os últimos segmentos de uma lista longa tendem a caçar ruído — leia a densidade média de cada um.", en: "Consecutive non-overlapping segments (up to 100): after each found segment, the density is zeroed in a ~2-cell tube around it and the search re-runs on what is left. Cells stay traversable — a later segment may CROSS an earlier one perpendicular (it just collects nothing there), but cannot re-harvest the same corridor or its adjacent lane. Cost is ~linear in the segment count; on an exhausted field the search stops early (returns fewer segments). The last segments of a long list tend to chase noise — read each one's mean density." },
   "maxseg.lookback":     { pt: "janela anti-ida-e-volta local (km)", en: "local anti-round-trip window (km)" },
@@ -956,6 +958,7 @@ const PERSIST_IDS = [
   "passes-gamma", "passes-mean-window", "passes-blend",
   "passes-vmin-b", "passes-vmax-b", "passes-gamma-b", "passes-mean-window-b",
   "maxseg-len", "maxseg-turn", "maxseg-elong", "maxseg-lookback", "maxseg-nseg",
+  "maxseg-colormap",
 ];
 // Restored controls whose change must re-fire dependent UI (sub-panel
 // show/hide, basemap swap). We dispatch a synthetic change after restoring so
@@ -1338,9 +1341,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // the Refresh-style button anyway).
     routesSel.addEventListener("change", recolorRouteLines);
   }
+  // Max-density-segment palette — same pattern as routes: populate from the
+  // CET catalog, recolour the drawn strokes in place on change (no recompute).
+  const maxsegSel = document.getElementById("maxseg-colormap");
+  if (maxsegSel) {
+    rebuildColormapOptions(maxsegSel);
+    maxsegSel.value = "CET_R1"; // perceptually uniform rainbow (user request)
+    maxsegSel.addEventListener("change", recolorMaxsegStrokes);
+  }
   refreshColormapLabels = () => {
     if (sel) rebuildColormapOptions(sel);
     if (routesSel) rebuildColormapOptions(routesSel);
+    if (maxsegSel) rebuildColormapOptions(maxsegSel);
   };
   // Top-N toggle reveals N + penalty + repulsion inputs
   const topnCheck = document.getElementById("want-topn");
@@ -2337,12 +2349,13 @@ const state = {
   // mode, unavailable } — see installKpiResult / kpiInvalidate. NOT part of
   // state.lastResult: style re-renders must never touch it.
   kpi: null,
-  // Max-density segment (3C.c): post-hoc DP over the last density/passes
-  // field. { worker (in-flight Worker or null), line (Leaflet polyline or
-  // null) }; maxsegGen invalidates stale worker messages (same pattern as
+  // Max-density segment (3C.c): post-hoc search over the last density/passes
+  // field. { worker (in-flight Worker or null), line (Leaflet layerGroup or
+  // null), strokes ([{stroke, t}] for live palette recolouring) };
+  // maxsegGen invalidates stale worker messages (same pattern as
   // computeGen). Cleared by cancelActiveCompute() — the result derives from
   // the current grid + last result, so any event that invalidates those
-  // clears the segment too.
+  // clears the segments too.
   maxseg: null,
   maxsegGen: 0,
   // Position in the quasi-random (Sobol/Halton) sequence used by "Place
@@ -8497,7 +8510,6 @@ document.getElementById("kpi-export-matrix")?.addEventListener("click", kpiExpor
 // alongside everything else derived from the current grid + result.
 
 const MAXSEG_CELL_BUDGET = 4 * 1024 * 1024; // coarse cells — under the worker's 16 M guard
-const MAXSEG_COLOR = "#d946ef"; // fúcsia — distinta das rotas laranja/azul/ciano
 
 function clearMaxseg() {
   state.maxsegGen++;
@@ -8647,18 +8659,43 @@ function runMaxseg() {
   say(t("maxseg.progress", 0));
 }
 
-// Rank colours for consecutive segments: #1 keeps the established fuchsia,
-// then distinct hues (violet → indigo → sky → teal → …) so up to 10 segments
-// stay tellable apart over the raster.
-const MAXSEG_COLORS = [
-  MAXSEG_COLOR, "#8b5cf6", "#6366f1", "#0ea5e9", "#14b8a6",
-  "#84cc16", "#eab308", "#f97316", "#ef4444", "#ec4899",
-];
+// Segment colour: the 3C.c palette (default CET-R1) sampled at t = this
+// segment's density ratio ÷ the run's best ratio — colour is PROPORTIONAL to
+// how many times denser than the field the segment is, with the run's best
+// at the palette top. Same anchor-lerp as routeColour.
+function maxsegColour(tVal) {
+  const name = document.getElementById("maxseg-colormap")?.value || "CET_R1";
+  const anchors = COLORMAPS[name] || COLORMAPS.CET_R1;
+  const m = anchors.length - 1;
+  const fPos = Math.min(1, Math.max(0, tVal)) * m;
+  const j = Math.floor(fPos), frac = fPos - j;
+  const a = anchors[Math.min(j, m)], b = anchors[Math.min(j + 1, m)];
+  const r = Math.round(a[0] + (b[0] - a[0]) * frac);
+  const g = Math.round(a[1] + (b[1] - a[1]) * frac);
+  const bl = Math.round(a[2] + (b[2] - a[2]) * frac);
+  return `rgb(${r},${g},${bl})`;
+}
+
+// Palette change → restyle the drawn strokes in place (style layer only —
+// same rule as recolorRouteLines: never a recompute, never a raster render).
+function recolorMaxsegStrokes() {
+  const ms = state.maxseg;
+  if (!ms || !ms.strokes) return;
+  for (const s of ms.strokes) s.stroke.setStyle({ color: maxsegColour(s.t) });
+}
 
 function renderMaxseg(m, { f, Wc, fieldMean, minCellM }) {
   const { H, W } = state.dem;
   const segs = (m.segments && m.segments.length) ? m.segments : [m];
+  // Density ratio (mean along segment ÷ field mean) per segment; the palette
+  // position is PROPORTIONAL to it, normalised by the run's best ratio.
+  const ratios = segs.map((seg) => {
+    const meanD = seg.lengthM > 0 ? seg.sum / seg.lengthM : 0;
+    return fieldMean > 0 ? meanD / fieldMean : 0;
+  });
+  const rMax = Math.max(...ratios);
   const layers = [];
+  const strokes = []; // {stroke, t} — for live palette recolouring
   const metaLines = [];
   let bounds = null;
   for (let si = 0; si < segs.length; si++) {
@@ -8671,7 +8708,7 @@ function renderMaxseg(m, { f, Wc, fieldMean, minCellM }) {
       pts.push(cellFracToLatLng(Math.min(H, cr * f + f / 2), Math.min(W, cc * f + f / 2)));
     }
     const meanD = seg.lengthM > 0 ? seg.sum / seg.lengthM : 0;
-    const ratio = fieldMean > 0 ? meanD / fieldMean : 0;
+    const ratio = ratios[si];
     const label = (segs.length > 1 ? `S${si + 1}: ` : "") + t(
       "maxseg.result",
       (seg.lengthM / 1000).toFixed(2),
@@ -8683,15 +8720,16 @@ function renderMaxseg(m, { f, Wc, fieldMean, minCellM }) {
     // Dark casing under each stroke: the segments hug the brightest corridor
     // cells by construction — exactly where a single thin line would vanish
     // into the hot end of the colormap.
-    const colour = MAXSEG_COLORS[si % MAXSEG_COLORS.length];
+    const tPos = rMax > 0 ? ratio / rMax : 1;
     const casing = L.polyline(pts, { color: "#1a1a1a", weight: 7, opacity: 0.8, pane: "routesPane", interactive: false });
     const stroke = L.polyline(pts, {
-      color: colour, weight: Math.max(2.5, 4 - si * 0.15),
+      color: maxsegColour(tPos), weight: Math.max(2.5, 4 - si * 0.15),
       opacity: Math.max(0.7, 0.95 - si * 0.03), pane: "routesPane",
     });
     stroke.bindTooltip(label, { sticky: true });
     stroke.bindPopup(label);
     layers.push(casing, stroke);
+    strokes.push({ stroke, t: tPos });
     bounds = bounds ? bounds.extend(stroke.getBounds()) : stroke.getBounds();
     metaLines.push(label);
   }
@@ -8699,7 +8737,7 @@ function renderMaxseg(m, { f, Wc, fieldMean, minCellM }) {
   // Bring the result into view — the best segment is often far from the
   // current viewport, and "found but off-screen" reads as "nothing happened".
   if (bounds) map.fitBounds(bounds, { padding: [40, 40] });
-  state.maxseg = { worker: null, line };
+  state.maxseg = { worker: null, line, strokes };
   const metaEl = document.getElementById("maxseg-meta");
   if (metaEl) metaEl.innerHTML = metaLines.map(escapeHtml).join("<br/>");
   const clr = document.getElementById("maxseg-clear");

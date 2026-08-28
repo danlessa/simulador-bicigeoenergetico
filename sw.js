@@ -701,7 +701,15 @@
 //              drifted slightly on every re-render — first render, Refresh
 //              style, and range Reset each showed a different number.
 //              Fixed-seed RNG: same field + options → bit-identical bounds.
-const VERSION  = "v76";
+//   v76 → v77: Segment colours now carry DATA (3C.c palette selector):
+//              each segment is coloured by its mean density relative to the
+//              field mean, proportional to the run's best segment
+//              (t = ratio/maxRatio), sampled from a user-selectable CET
+//              palette (default CET-R1, perceptually uniform rainbow) —
+//              replaces the arbitrary rank colours. Palette change
+//              recolours the drawn strokes in place (style layer only, no
+//              recompute — same rule as the routes colormap).
+const VERSION  = "v77";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;
 
