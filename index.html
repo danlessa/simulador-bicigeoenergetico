@@ -1850,11 +1850,13 @@
               (padrão 20) maximizando a soma de densidade (∑ densidade·metro).
               É o problema de <em>orienteering</em> (NP-difícil), então a
               busca é heurística: partidas múltiplas em células quentes bem
-              espaçadas, crescimento auto-evitante pelas duas pontas e
-              lookahead guloso, sobre o campo engrossado automaticamente
-              (média por bloco, ≤ 4 M células) — uma DP exata sobre
-              <em>passeios</em> foi testada e descartada (degenerava em
-              vaivém sobre o trecho mais quente). Linha fúcsia com contorno
+              espaçadas, crescimento auto-evitante pelas duas pontas,
+              lookahead guloso e penalização de curvas (sem ela o objetivo
+              bruto premia serpentear em corredores largos; a soma exibida
+              continua sendo a integral bruta da linha), sobre o campo
+              engrossado automaticamente (média por bloco, ≤ 4 M células) —
+              uma DP exata sobre <em>passeios</em> foi testada e descartada
+              (degenerava em vaivém sobre o trecho mais quente). Linha fúcsia com contorno
               escuro, mapa enquadra o resultado; tooltip com comprimento,
               densidade média (×N da média do campo) e célula efetiva. Só
               análise/exibição, DEMs geográficos: nunca recalcula o campo, e

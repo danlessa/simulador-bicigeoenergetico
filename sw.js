@@ -650,11 +650,16 @@
 //              two-ended self-avoiding greedy with rollout lookahead; an
 //              exact layered DP over WALKS was tried first and dropped
 //              (measured: it shuttled 5× over the hottest 4 km stretch of
-//              a 20 km target). Fuchsia line with dark casing + fitBounds
-//              on result; geographic DEMs only (like all routes). Display/
+//              a 20 km target). Steps are scored with a multiplicative turn
+//              penalty (((1+cosΔθ)/2)^0.5, seed-kink coupled) — without it
+//              the raw objective rewards snaking across wide corridors
+//              (measured sinuosity 1.41 → 1.04); the penalty steers the
+//              search only, the reported sum stays the drawn line's own raw
+//              integral. Fuchsia line with dark casing + fitBounds on
+//              result; geographic DEMs only (like all routes). Display/
 //              analysis only — engines, backend parity, bundles untouched.
-//              test-maxseg.mjs pins quality against exact simple-path
-//              enumeration and the shuttle regression.
+//              test-maxseg.mjs pins quality against exact enumeration of
+//              the same penalized objective + shuttle/zigzag regressions.
 const VERSION  = "v74";
 const PRECACHE = `simu-precache-${VERSION}`;
 const RUNTIME  = `simu-runtime-${VERSION}`;

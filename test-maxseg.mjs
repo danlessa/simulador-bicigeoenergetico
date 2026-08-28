@@ -53,6 +53,27 @@ function moveLens(dx, dy) {
   const diag = Math.hypot(dx, dy);
   return [diag, dy, diag, dx, dx, diag, dy, diag];
 }
+// MIRROR of the worker's turn-factor table (MAXSEG_TURN_EXP — hand-kept-in-
+// sync): candidate steps are scored as reward × ((1 + cos Δθ)/2)^exp against
+// the previous move; the first move of a path is free. The worker's kink
+// coupling makes its accumulated penalized score equal this traversal-order
+// objective exactly, so the exact reference below enumerates the SAME thing.
+const TURN_EXP = 0.5;
+function turnTable(dx, dy) {
+  const ux = [], uy = [];
+  for (let k = 0; k < 8; k++) {
+    const vx = DCS[k] * dx, vy = DRS[k] * dy;
+    const n = Math.hypot(vx, vy);
+    ux.push(vx / n); uy.push(vy / n);
+  }
+  const tf = [];
+  for (let a = 0; a < 8; a++) {
+    tf.push([]);
+    for (let k = 0; k < 8; k++)
+      tf[a].push(Math.pow(Math.max(0, (1 + ux[a] * ux[k] + uy[a] * uy[k]) / 2), TURN_EXP));
+  }
+  return tf;
+}
 
 // Deterministic pseudo-random field (mulberry32).
 function prng(seed) {
@@ -69,14 +90,16 @@ function prng(seed) {
 // Exact reference: enumerate every SIMPLE path (self-avoiding, any start)
 // whose length lands in [target, target + maxEdge] — the same stopping band
 // the search uses (it halts at the first step crossing the target) — plus
-// under-length dead ends, and return the max Σ d̄·len. Exponential; small
-// grids only.
+// under-length dead ends, and return the max TURN-PENALIZED score (the
+// search's own objective; turn factors are direction-symmetric, so directed
+// enumeration covers every traversal). Exponential; small grids only.
 function exactBest(density, allowed, H, W, dx, dy, targetLenM) {
   const lens = moveLens(dx, dy);
+  const tf = turnTable(dx, dy);
   const maxEdge = Math.max(...lens);
   let best = -Infinity;
   const visited = new Uint8Array(H * W);
-  const step = (r, c, len, val) => {
+  const step = (r, c, prevK, len, val) => {
     if (len >= targetLenM) { if (val > best) best = val; return; }
     let extended = false;
     for (let k = 0; k < 8; k++) {
@@ -87,8 +110,9 @@ function exactBest(density, allowed, H, W, dx, dy, targetLenM) {
       const nl = len + lens[k];
       if (nl > targetLenM + maxEdge) continue;
       extended = true;
+      const base = 0.5 * (density[r * W + c] + density[n]) * lens[k];
       visited[n] = 1;
-      step(nr, nc, nl, val + 0.5 * (density[r * W + c] + density[n]) * lens[k]);
+      step(nr, nc, k, nl, val + base * (prevK < 0 ? 1 : tf[prevK][k]));
       visited[n] = 0;
     }
     if (!extended && val > best) best = val; // dead end below target still counts
@@ -98,20 +122,22 @@ function exactBest(density, allowed, H, W, dx, dy, targetLenM) {
       const i = r * W + c;
       if (!allowed[i]) continue;
       visited[i] = 1;
-      step(r, c, 0, 0);
+      step(r, c, -1, 0, 0);
       visited[i] = 0;
     }
   return best;
 }
 
-// Validity checks on a returned path + recomputed sum/length. `strict` now:
-// a max-density segment must be a SIMPLE path — no revisits at all.
+// Validity checks on a returned path + recomputed raw sum, penalized score
+// (the search objective, for the exact-reference ratio) and length. A
+// max-density segment must be a SIMPLE path — no revisits at all.
 function auditPath(m, density, allowed, H, W, dx, dy) {
   const lens = moveLens(dx, dy);
+  const tf = turnTable(dx, dy);
   const p = m.path;
   let ok = p.length >= 2;
   const seen = new Set();
-  let sum = 0, len = 0;
+  let sum = 0, pen = 0, len = 0, prevK = -1;
   for (let i = 0; i < p.length; i++) {
     if (!allowed[p[i]]) ok = false;
     if (seen.has(p[i])) ok = false; // revisit → not a simple path
@@ -122,10 +148,13 @@ function auditPath(m, density, allowed, H, W, dx, dy) {
     let k = -1;
     for (let j = 0; j < 8; j++) if (DRS[j] === br - ar && DCS[j] === bc - ac) k = j;
     if (k === -1) { ok = false; continue; } // not an 8-neighbour step
-    sum += 0.5 * (density[p[i - 1]] + density[p[i]]) * lens[k];
+    const base = 0.5 * (density[p[i - 1]] + density[p[i]]) * lens[k];
+    sum += base;
+    pen += base * (prevK < 0 ? 1 : tf[prevK][k]);
     len += lens[k];
+    prevK = k;
   }
-  return { ok, sum, len };
+  return { ok, sum, pen, len };
 }
 
 // ---- 1. exact-enumeration quality + path validity (square & anisotropic) ----
@@ -150,13 +179,13 @@ for (const { name, dx, dy } of [
   });
   assert(!error && done, `worker returned a result${error ? ` (error: ${error.message})` : ""}`);
   if (done) {
-    const ratio = done.sum / ref;
-    // Heuristic, not exact — but on a 6×6 field it must land close to the
-    // true simple-path optimum. Deterministic (fixed seed), so a pinned
-    // floor is safe; report the actual ratio for the log.
-    assert(ratio >= 0.9 && ratio <= 1.0 + 1e-9,
-      `within 10% of the exact simple-path optimum (ratio ${ratio.toFixed(3)}: ${done.sum.toFixed(1)} vs ${ref.toFixed(1)})`);
     const audit = auditPath(done, density, allowed, H, W, dx, dy);
+    // Heuristic, not exact — but it must land close to the exact optimum of
+    // ITS OWN (turn-penalized) objective. Deterministic (fixed seed), so a
+    // pinned floor is safe; report the actual ratio for the log.
+    const ratio = audit.pen / ref;
+    assert(ratio >= 0.9 && ratio <= 1.0 + 1e-9,
+      `within 10% of the exact penalized optimum (ratio ${ratio.toFixed(3)}: ${audit.pen.toFixed(1)} vs ${ref.toFixed(1)})`);
     assert(audit.ok, "path is a valid SIMPLE path (8-neighbour, allowed, no revisits)");
     assert(Math.abs(audit.sum - done.sum) <= 1e-9 * Math.max(1, Math.abs(done.sum)),
       "reported sum == the path's own recomputed line integral");
@@ -189,7 +218,40 @@ for (const { name, dx, dy } of [
   }
 }
 
-// ---- 3. SHUTTLE-DEGENERACY regression (why the walk-DP was replaced) ----
+// ---- 3. ZIGZAG regression: wide corridor must be followed along its spine ----
+// A corridor 3 cells wide: without the turn penalty the raw objective rewards
+// SNAKING across the corridor's width (measured pre-fix: sinuosity 1.41,
+// 100% ≥90° turns — the "too ziggy-zaggy" report); and without the seed-kink
+// coupling a strong penalty folded the path into a hairpin V (sinuosity 2.19).
+{
+  console.log("zigzag regression (3-cell-wide corridor)");
+  const H = 40, W = 60, N = H * W, dx = 100, dy = 100;
+  const density = new Float32Array(N).fill(0.01);
+  for (let r = 19; r <= 21; r++) for (let c = 0; c < W; c++) density[r * W + c] = 10;
+  const allowed = new Uint8Array(N).fill(1);
+  const { done, error } = run({ kind: "maxseg", density, allowed, H, W, dx, dy, targetLenM: 3000 });
+  assert(!error && done, "worker returned a result");
+  if (done) {
+    const p = done.path;
+    const a = p[0], b = p[p.length - 1];
+    const straight = Math.hypot((((a / W) | 0) - ((b / W) | 0)) * dy, ((a % W) - (b % W)) * dx);
+    const sinuosity = done.lengthM / straight;
+    assert(sinuosity <= 1.15, `sinuosity ${sinuosity.toFixed(2)} ≤ 1.15 (pre-fix: 1.41 snake / 2.19 hairpin)`);
+    let sharp = 0;
+    for (let i = 2; i < p.length; i++) {
+      const d1r = ((p[i - 1] / W) | 0) - ((p[i - 2] / W) | 0), d1c = (p[i - 1] % W) - (p[i - 2] % W);
+      const d2r = ((p[i] / W) | 0) - ((p[i - 1] / W) | 0), d2c = (p[i] % W) - (p[i - 1] % W);
+      if (d1r * d2r + d1c * d2c <= 0) sharp++; // ≥ 90° turn
+    }
+    assert(sharp / (p.length - 2) <= 0.05,
+      `≥90° turns ≤ 5% of steps (${sharp}/${p.length - 2}; pre-fix: 100%)`);
+    let cMin = 1e9, cMax = -1e9;
+    for (const idx of p) { const c = idx % W; if (c < cMin) cMin = c; if (c > cMax) cMax = c; }
+    assert(cMax - cMin >= 27, `spans the corridor lengthwise (${cMax - cMin} cols; straight 3 km = 30)`);
+  }
+}
+
+// ---- 4. SHUTTLE-DEGENERACY regression (why the walk-DP was replaced) ----
 // Realistic corridor field: a main corridor with a hot pinch point + two
 // weaker branches. The old layered walk-DP returned a 20 km walk collapsed
 // onto rows 100–101 × 4 km, revisitFrac 0.78 — invisible on the map. The

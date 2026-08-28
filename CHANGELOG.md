@@ -24,8 +24,15 @@ concentra mais passagens?".
   por candidato. É o problema de *orienteering* (NP-difícil), então é uma
   heurística honesta, sem garantia de ótimo global; `test-maxseg.mjs` pina a
   qualidade contra enumeração exata de caminhos simples em grades pequenas
-  (≥ 90% do ótimo em campo aleatório — o pior caso; em campos de corredor,
-  o caso de uso, segue o cume por inteiro).
+  (≥ 90% do ótimo do próprio objetivo em campo aleatório — o pior caso; em
+  campos de corredor, o caso de uso, segue o cume por inteiro).
+- A busca pontua cada passo com **penalização de curva** multiplicativa
+  (`((1+cos Δθ)/2)^0.5` contra a direção anterior da perna, com a dobra na
+  semente acoplada entre as pernas): sem ela, o objetivo bruto premia
+  serpentear dentro de corredores largos (medido: sinuosidade 1,41 com 100%
+  de curvas ≥ 90° num corredor de 3 células — o "ziggy-zaggy"; com a
+  penalização: 1,04 e 0%). A penalização só guia a BUSCA — a soma exibida
+  continua sendo a integral bruta da própria linha desenhada.
 - Uma DP **exata** em camadas sobre *passeios* (só o vaivém imediato
   proibido) foi implementada primeiro e descartada: medido num campo de
   corredores realista, o "segmento de 20 km" dela colapsava em 4 km do

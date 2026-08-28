@@ -1498,6 +1498,15 @@ const MAXSEG_MAX_CELLS = 16 * 1024 * 1024; // app coarsens to ≤ ~4 M — hard 
 const MAXSEG_STARTS = 24;      // seed cells (spacing-filtered from the top pool)
 const MAXSEG_TOP_POOL = 4096;  // top-density pool the seeds are drawn from
 const MAXSEG_ROLLOUT = 12;      // lookahead depth per candidate step
+// Turn penalty exponent: candidate steps are SCORED as reward ×
+// ((1 + cos Δθ)/2)^exp against the leg's previous direction (1 = straight,
+// →0 near a reversal). Without it the raw objective rewards SNAKING: where
+// the coarsened corridor is 2–3 cells wide, weaving across its width packs
+// more Σ d̄·len into the hot band than following its spine (measured: a
+// straight 3-wide corridor came back at sinuosity 1.41 with 100% ≥90°
+// turns). The penalty steers the SEARCH only — the reported sum stays the
+// drawn polyline's own raw line integral.
+const MAXSEG_TURN_EXP = 0.5;
 
 function maxDensitySegment(opts) {
   const {
@@ -1571,47 +1580,85 @@ function maxDensitySegment(opts) {
   }
 
   // ---- Two-ended self-avoiding greedy growth with rollout lookahead ----
+  // Turn-factor table over metric move directions (anisotropy-aware): row a =
+  // the leg's previous move, col k = the candidate move; row 8 = "no previous
+  // direction" (only the very first extension of a run). A leg's FIRST step is
+  // scored against the REVERSE of the other leg's first move when that exists
+  // — the bend at the seed is a bend of the traversed path like any other.
+  // Leaving it free let a strongly-straightened path fold into a hairpin "V"
+  // (two straight legs, endpoints adjacent — measured sinuosity 2.19). With
+  // the coupling, the accumulated penalized score equals the full traversal's
+  // pairwise turn objective exactly (turn factors are direction-symmetric),
+  // which is also what test-maxseg.mjs's exact reference enumerates.
+  const turnF = new Float64Array(9 * 8);
+  {
+    const ux = new Float64Array(8), uy = new Float64Array(8);
+    for (let k = 0; k < 8; k++) {
+      const vx = dcs[k] * dx, vy = drs[k] * dy;
+      const n = Math.hypot(vx, vy);
+      ux[k] = vx / n; uy[k] = vy / n;
+    }
+    for (let a = 0; a < 8; a++)
+      for (let k = 0; k < 8; k++)
+        turnF[a * 8 + k] = Math.pow(Math.max(0, (1 + ux[a] * ux[k] + uy[a] * uy[k]) / 2), MAXSEG_TURN_EXP);
+    for (let k = 0; k < 8; k++) turnF[8 * 8 + k] = 1;
+  }
+
   const visited = new Uint8Array(N);
   const rollMarks = new Int32Array(MAXSEG_ROLLOUT);
 
-  // Greedy self-avoiding continuation from `from`, depth-limited; returns the
-  // summed reward. Temp-marks visited cells and unmarks before returning.
-  const rollout = (from) => {
-    let cur = from, sum = 0, nMarks = 0;
+  // Greedy self-avoiding continuation from `from` (arrived via `fromDir`),
+  // depth-limited; returns the summed PENALIZED reward. Temp-marks visited
+  // cells and unmarks before returning.
+  const rollout = (from, fromDir) => {
+    let cur = from, dir = fromDir, sum = 0, nMarks = 0;
     for (let d = 0; d < MAXSEG_ROLLOUT; d++) {
       const r = (cur / W) | 0, c = cur - r * W;
-      let bestS = -Infinity, bestN = -1;
+      let bestS = -Infinity, bestN = -1, bestK = -1;
       for (let k = 0; k < 8; k++) {
         const nr = r + drs[k], nc = c + dcs[k];
         if (nr < 0 || nr >= H || nc < 0 || nc >= W) continue;
         const n = nr * W + nc;
         if (!allowed[n] || visited[n]) continue;
-        const s = 0.5 * (density[cur] + density[n]) * lens[k];
-        if (s > bestS) { bestS = s; bestN = n; }
+        const s = 0.5 * (density[cur] + density[n]) * lens[k] * turnF[dir * 8 + k];
+        if (s > bestS) { bestS = s; bestN = n; bestK = k; }
       }
       if (bestN < 0) break;
       sum += bestS;
       visited[bestN] = 1;
       rollMarks[nMarks++] = bestN;
       cur = bestN;
+      dir = bestK;
     }
     for (let i = 0; i < nMarks; i++) visited[rollMarks[i]] = 0;
     return sum;
   };
 
-  const best = { R: -Infinity, len: 0, path: null };
+  const best = { Rpen: -Infinity, Rraw: 0, len: 0, path: null };
   for (let si = 0; si < starts.length; si++) {
     const s = starts[si];
     visited.fill(0);
     visited[s] = 1;
     const headArr = [], tailArr = []; // cells beyond s on each side, in growth order
     let headEnd = s, tailEnd = s;
-    let len = 0, R = 0;
+    let headDir = 8, tailDir = 8;    // 8 = no previous direction yet
+    let headDir0 = 8, tailDir0 = 8;  // each leg's FIRST outward move (kink coupling)
+    let len = 0, Rraw = 0, Rpen = 0;
 
     while (len < targetLenM) {
-      let bestScore = -Infinity, bestN = -1, bestBase = 0, bestLen = 0, bestSide = 0;
+      let bestScore = -Infinity, bestN = -1, bestK = -1, bestBase = 0, bestPen = 0, bestSide = 0;
       for (let side = 0; side < 2; side++) {
         const end = side === 0 ? headEnd : tailEnd;
+        let endDir = side === 0 ? headDir : tailDir;
+        // Seed-kink coupling: this leg's first step bends the path at the
+        // seed relative to the other leg's first (outward) move — score it
+        // against that move's reverse (7 − k mirrors the classic tables).
+        if (endDir === 8) {
+          const otherFirst = side === 0
+            ? (tailArr.length ? tailDir0 : 8)
+            : (headArr.length ? headDir0 : 8);
+          if (otherFirst !== 8) endDir = 7 - otherFirst;
+        }
         const r = (end / W) | 0, c = end - r * W;
         for (let k = 0; k < 8; k++) {
           const nr = r + drs[k], nc = c + dcs[k];
@@ -1619,32 +1666,40 @@ function maxDensitySegment(opts) {
           const n = nr * W + nc;
           if (!allowed[n] || visited[n]) continue;
           const base = 0.5 * (density[end] + density[n]) * lens[k];
+          const pen = base * turnF[endDir * 8 + k];
           visited[n] = 1;
-          const score = base + rollout(n);
+          const score = pen + rollout(n, k);
           visited[n] = 0;
           if (score > bestScore) {
-            bestScore = score; bestN = n; bestBase = base; bestLen = lens[k]; bestSide = side;
+            bestScore = score; bestN = n; bestK = k; bestBase = base; bestPen = pen; bestSide = side;
           }
         }
       }
       if (bestN < 0) break; // both ends stuck (mask pocket / grid corner)
       visited[bestN] = 1;
-      if (bestSide === 0) { headArr.push(bestN); headEnd = bestN; }
-      else { tailArr.push(bestN); tailEnd = bestN; }
-      len += bestLen;
-      R += bestBase;
+      if (bestSide === 0) {
+        if (!headArr.length) headDir0 = bestK;
+        headArr.push(bestN); headEnd = bestN; headDir = bestK;
+      } else {
+        if (!tailArr.length) tailDir0 = bestK;
+        tailArr.push(bestN); tailEnd = bestN; tailDir = bestK;
+      }
+      len += lens[bestK];
+      Rraw += bestBase;
+      Rpen += bestPen;
     }
 
-    // Prefer runs that reached (≈) the target; among those, max reward.
+    // Prefer runs that reached (≈) the target; among those, max PENALIZED
+    // reward (the search objective) — the raw integral is what gets reported.
     const full = len >= 0.95 * targetLenM;
     const bFull = best.len >= 0.95 * targetLenM;
-    if ((full && !bFull) || (full === bFull && (full ? R > best.R : len > best.len))) {
+    if ((full && !bFull) || (full === bFull && (full ? Rpen > best.Rpen : len > best.len))) {
       const path = new Int32Array(headArr.length + 1 + tailArr.length);
       let p = 0;
       for (let i = headArr.length - 1; i >= 0; i--) path[p++] = headArr[i];
       path[p++] = s;
       for (let i = 0; i < tailArr.length; i++) path[p++] = tailArr[i];
-      best.R = R; best.len = len; best.path = path;
+      best.Rpen = Rpen; best.Rraw = Rraw; best.len = len; best.path = path;
     }
     postMessage({ kind: "progress", progress: progressBase + progressScale * ((si + 1) / starts.length) });
   }
@@ -1653,7 +1708,9 @@ function maxDensitySegment(opts) {
 
   return {
     path: best.path,
-    sum: best.R,           // Σ d̄·len over the path (density · metres)
+    sum: best.Rraw,        // Σ d̄·len over the path (density · metres) — RAW,
+                           // the drawn line's own integral (the turn penalty
+                           // steers the search only, never the readout)
     lengthM: best.len,     // true metric length (exact edge sum)
     revisitFrac: 0,        // simple path by construction (kept for API shape)
   };
